@@ -242,4 +242,4 @@ for (const entry of ['react', 'react-dom', 'react-dom/client', 'react-dom/server
 
 ---
 
-[← Previous: 74 — Machine-Coding Drills](74-machine-coding-drills.md) · [Index](README.md) · [Next: A2 — React Version History, Release Channels and Governance →](A2-react-version-history-and-governance.md)
+[← Previous: 79 — Distributed Systems Design for Frontend Architects](79-distributed-systems-design-for-frontend-architects.md) · [Index](README.md) · [Next: A2 — React Version History, Release Channels and Governance →](A2-react-version-history-and-governance.md)

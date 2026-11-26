@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-- **About 100 terms** used across this handbook, each with a short definition and the chapter that covers it.
+- **About 110 terms** used across this handbook, each with a short definition and the chapter that covers it.
 - **Definitions are for how the terms are used here,** in React 19.3, Next.js 16.4 and Angular 22.3 as of November 2026.
 - **The reading list at the end** is short on purpose: specifications, official documentation, and a few books worth the time.
 
@@ -62,11 +62,15 @@
 
 **Concurrent rendering** — React's ability to prepare UI in the background, interrupt it and prioritise urgent updates. → [15](15-concurrent-react-suspense-and-transitions.md)
 
+**Consistent hashing** — Placing servers and keys on a ring so that adding a server moves only about 1/N of the keys; virtual nodes even out the load. → [79](79-distributed-systems-design-for-frontend-architects.md)
+
 **Contrast ratio** — WCAG's measure of luminance difference: 4.5:1 for normal text and 3:1 for large text and non-text UI at level AA. → [70](70-case-study-enterprise-design-system.md)
 
 **Core Web Vitals** — LCP, INP and CLS, measured at the 75th percentile of real users. → [39](39-web-performance-and-core-web-vitals.md)
 
 **CORS** — The browser rule controlling whether a page may read cross-origin responses. Not CSRF protection. → [43](43-frontend-security-architecture.md)
+
+**Cost of delay** — What each week without an outcome costs; divided by duration, it orders work to minimise total delay cost. → [78](78-business-cases-and-investment-arguments.md)
 
 **CRDT (Conflict-free Replicated Data Type)** — A data structure whose replicas converge regardless of update order; the basis of collaborative and offline editing. → [34](34-realtime-offline-and-collaboration.md)
 
@@ -99,6 +103,8 @@
 **Event loop** — The browser's cycle of running a task, draining microtasks and rendering. → [03](03-javascript-runtime-and-engine.md)
 
 **Event Timing** — The browser API that reports how long interactions took; the data INP is built from. → [71](71-case-study-legacy-react-modernization.md)
+
+**Exposure (experiments)** — The moment a user actually sees a variant; logging it there, not at assignment, keeps measured effects undiluted. → [75](75-experimentation-and-product-analytics.md)
 
 ### F
 
@@ -150,6 +156,8 @@
 
 **LCP (Largest Contentful Paint)** — The Core Web Vital for loading: when the largest content element renders; good is ≤ 2.5 s at p75. → [39](39-web-performance-and-core-web-vitals.md)
 
+**Little's law** — Items in a system equal the arrival rate multiplied by the time each spends there; the basis of capacity planning. → [76](76-frontend-cost-and-capacity-engineering.md)
+
 **Loader** — A route-level function that fetches data before or while the route renders (React Router, TanStack Router). → [31](31-routing-architecture.md)
 
 **Long task** — A main-thread task over 50 ms, during which input waits. → [03](03-javascript-runtime-and-engine.md)
@@ -163,6 +171,10 @@
 **Module Federation** — A runtime mechanism for loading code and sharing dependencies between separately built apps. → [61](61-micro-frontends-and-module-federation.md)
 
 **Monorepo** — One repository holding many packages and apps, with tooling for task graphs and caching. → [60](60-monorepos-build-tooling-and-bundlers.md)
+
+### N
+
+**NPV (net present value)** — Future cash flows discounted to today; with the payback period, the headline of a business case. → [78](78-business-cases-and-investment-arguments.md)
 
 ### O
 
@@ -180,6 +192,8 @@
 
 **Paved road** — The default, supported way to build something, designed so the right choice is the easy one. → [63](63-architecture-governance-and-adrs.md)
 
+**Payback period** — The month in which cumulative benefits first exceed cumulative costs. → [78](78-business-cases-and-investment-arguments.md)
+
 **Portal** — Rendering children into a DOM node outside the parent's hierarchy while staying in the React tree. → [14](14-refs-dom-portals-and-imperative-apis.md)
 
 **Progressive enhancement** — Building so the core works without JavaScript, then enhancing; React 19 form actions support it. → [26](26-forms-and-validation.md)
@@ -189,6 +203,8 @@
 ### R
 
 **Reactive scope** — A block of code the React Compiler memoizes together, guarded by the values it depends on. → [71](71-case-study-legacy-react-modernization.md)
+
+**Read-your-writes** — A consistency guarantee that users always see their own writes, even on eventually consistent stores. → [79](79-distributed-systems-design-for-frontend-architects.md)
 
 **Reconciliation** — React comparing the new element tree with the previous one to decide what to change. → [10](10-react-internals-fiber-and-reconciliation.md)
 
@@ -204,6 +220,8 @@
 
 ### S
 
+**Sample ratio mismatch (SRM)** — An experiment's arm sizes differ from the planned split by more than chance allows: a sign of a broken pipeline, and a reason not to trust the results. → [75](75-experimentation-and-product-analytics.md)
+
 **Selective hydration** — Hydrating Suspense boundaries independently, prioritising the one the user interacts with. → [17](17-ssr-streaming-and-hydration.md)
 
 **Server Action / Server Function** — A server function marked `'use server'` that the client can call; every one is a public endpoint. → [18](18-react-server-components-and-server-functions.md)
@@ -216,6 +234,8 @@
 
 **State vector** — In Yjs, a summary of what a replica has seen, used to send only missing updates. → [69](69-case-study-collaborative-project-management.md)
 
+**Stream-aligned team** — A team owning a slice of the product end to end, consuming platforms as services (from *Team Topologies*). → [77](77-hiring-leveling-and-org-design.md)
+
 **Streaming SSR** — Sending server-rendered HTML in pieces as Suspense boundaries resolve. → [17](17-ssr-streaming-and-hydration.md)
 
 **Strict Mode** — Development-only double rendering and double effects that expose impure code. → [13](13-effects-and-synchronization.md)
@@ -227,6 +247,8 @@
 **Taint APIs** — Experimental React APIs that throw if a marked object or value reaches a Client Component. → [A4](A4-experimental-and-canary-apis.md)
 
 **Tearing** — Parts of the UI showing different versions of the same external state during one render. → [15](15-concurrent-react-suspense-and-transitions.md)
+
+**Token bucket** — A rate-limiting algorithm that allows bursts up to a capacity, refilled at a steady rate. → [79](79-distributed-systems-design-for-frontend-architects.md)
 
 **Transition** — A non-urgent, interruptible update (`startTransition`, `useTransition`). → [15](15-concurrent-react-suspense-and-transitions.md)
 

@@ -799,6 +799,8 @@ Outcomes: the user-facing metrics (Web Vitals, errors, accessibility defects), d
 | Angular or polyglot role | 13, and 2 for comparison | [59](59-react-vs-angular-architecture-comparison.md) |
 | Leadership | 15 | Stories from [72](72-the-principal-frontend-engineer.md) §12 |
 | Machine coding | — | [74](74-machine-coding-drills.md) |
+| General system design | 15 | [79](79-distributed-systems-design-for-frontend-architects.md) |
+| Principal leadership loop | 15 | [77](77-hiring-leveling-and-org-design.md), [78](78-business-cases-and-investment-arguments.md), [75](75-experimentation-and-product-analytics.md), [76](76-frontend-cost-and-capacity-engineering.md) |
 
 **Criteria:** prioritise the sections that match the rounds, then your weakest areas, then breadth.
 

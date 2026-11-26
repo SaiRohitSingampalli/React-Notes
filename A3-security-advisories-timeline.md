@@ -85,7 +85,7 @@ Next.js announced a formal security release program on 13 July 2026: pre-announc
 What the year teaches:
 
 - **Middleware isn't an authorization layer.** Two bypasses in two years (2025 and July 2026). Authorize where data is read and changed ([49](49-nextjs-data-mutations-and-auth.md)).
-- **Image optimization is server-side parsing of untrusted files.** Three of the year's issues were in image handling (SVG, AVIF, the October fix).
+- **Image optimization is server-side parsing of untrusted files.** Four of the year's issues involved image handling: SVG in July and November, AVIF in August, and the October fix.
 - **Caches are a security boundary.** Cross-tenant and cross-user leaks came from cache keys that didn't include everything the result depended on, the same lesson as [67](67-case-study-enterprise-saas-dashboard.md)'s client-side tenant leak.
 - **Request-controlled hostnames lead to SSRF.** Rewrites, redirects and Server Actions that build URLs from `Host` or forwarded headers.
 

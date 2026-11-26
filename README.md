@@ -24,11 +24,11 @@ The book is organised around **five architectural capabilities**:
 
 | Capability | What it means in practice | Where it lives |
 |---|---|---|
-| **System design** | Boundaries, composition, scalability, rendering topology | Parts I, III, IV, XI |
+| **System design** | Boundaries, composition, scalability, rendering topology, distributed systems | Parts I, III, IV, XI, XII |
 | **Data architecture** | State ownership, caching, consistency, contracts | Part IV |
 | **UI platform engineering** | Design systems, reusable packages, accessibility, i18n | Parts V, X |
 | **Production engineering** | Performance, reliability, observability, security | Parts VI, VII |
-| **Technical leadership** | Governance, ADRs, migrations, trade-offs, case studies | Part XI |
+| **Technical leadership** | Governance, ADRs, migrations, trade-offs, case studies, hiring, org design, business cases | Parts XI, XII |
 
 ## Who it is for
 
@@ -243,6 +243,15 @@ Each case study ships the deliverables an architect actually produces: an **arch
 | 73 | [Interview Question Bank](73-interview-question-bank.md) | 233 questions with model answers, by topic |
 | 74 | [Machine-Coding Drills](74-machine-coding-drills.md) | Debounce, Promise utilities, signals, a virtual list, an LRU cache, hooks, and UI components with commentary |
 
+### Part XII: Principal-Level Breadth
+| # | Chapter | What you will learn |
+|---|---|---|
+| 75 | [Experimentation and Product Analytics](75-experimentation-and-product-analytics.md) | Assignment you can trust, exposure logging, sample size, peeking, sample ratio mismatch, Web Vitals guardrails, experiments and caching |
+| 76 | [Frontend Cost and Capacity Engineering](76-frontend-cost-and-capacity-engineering.md) | A runnable cost model, unit costs, Little's law, the thundering herd, observability and CI costs |
+| 77 | [Hiring, Leveling and Org Design](77-hiring-leveling-and-org-design.md) | Interview loops, anchored rubrics, calibration, the IC ladder, team topologies, platform teams, the first 90 days |
+| 78 | [Business Cases and Investment Arguments](78-business-cases-and-investment-arguments.md) | The one-page memo, turning outcomes into money, NPV and payback, sensitivity, cost of delay |
+| 79 | [Distributed Systems Design for Frontend Architects](79-distributed-systems-design-for-frontend-architects.md) | Estimation, building blocks, consistency and the UI, consistent hashing, queues and idempotency, rate limiting, a worked design |
+
 ### Appendices: Versioned Technical Reference
 | # | Appendix | Contents |
 |---|---|---|
@@ -258,7 +267,8 @@ Each case study ships the deliverables an architect actually produces: an **arch
 
 | Goal | Path |
 |---|---|
-| 🎯 **Staff/principal interview in 3 weeks** | 01 → 08 → 10 → 12 → 13 → 15 → 18 → 21 → 28 → 30 → 32 → 38 → 39 → 66 → 67 → 72 → 73 → 74 |
+| 🎯 **Staff/principal interview in 3 weeks** | 01 → 08 → 10 → 12 → 13 → 15 → 18 → 21 → 28 → 30 → 32 → 38 → 39 → 66 → 67 → 72 → 73 → 74 → 79 |
+| 🧭 **Principal-level breadth** | 72 → 77 → 78 → 75 → 76 → 79 → 63 |
 | ⚛️ **Know everything about React** | 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 22 → 27 → A1 |
 | 🏛️ **Newly appointed frontend architect** | 01 → 21 → 28 → 32 → 54 → 35 → 60 → 61 → 62 → 63 → 64 → 72 |
 | 🅰️→⚛️ **Angular engineer moving to React and Next.js** | 56 → 57 → 59 → 08 → 12 → 13 → 15 → 18 → 47 → 48 |

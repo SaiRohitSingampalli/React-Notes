@@ -2,7 +2,7 @@
 
 > At senior level you're paid for good answers. At staff and principal level you're paid for choosing the right questions, getting the organisation to answer them, and making sure the answers stick.
 
-**Prerequisites:** [01 Thinking Like a Frontend Architect](01-thinking-like-a-frontend-architect.md), [63 Architecture Governance and ADRs](63-architecture-governance-and-adrs.md) · **Related:** [64 Migration Playbooks](64-migration-playbooks.md) · [66 Frontend System Design](66-frontend-system-design.md) · [70 Case Study: Prism](70-case-study-enterprise-design-system.md) · [73 Interview Question Bank](73-interview-question-bank.md) · [74 Machine-Coding Drills](74-machine-coding-drills.md)
+**Prerequisites:** [01 Thinking Like a Frontend Architect](01-thinking-like-a-frontend-architect.md), [63 Architecture Governance and ADRs](63-architecture-governance-and-adrs.md) · **Related:** [64 Migration Playbooks](64-migration-playbooks.md) · [66 Frontend System Design](66-frontend-system-design.md) · [70 Case Study: Prism](70-case-study-enterprise-design-system.md) · [73 Interview Question Bank](73-interview-question-bank.md) · [74 Machine-Coding Drills](74-machine-coding-drills.md) · [77 Hiring, Leveling and Org Design](77-hiring-leveling-and-org-design.md) · [78 Business Cases](78-business-cases-and-investment-arguments.md) · [79 Distributed Systems Design](79-distributed-systems-design-for-frontend-architects.md)
 
 ---
 
@@ -266,6 +266,7 @@ Interviews for staff and principal roles test different things than senior ones.
 | Round | What they're testing | How to prepare |
 |---|---|---|
 | Frontend system design | Framing an ambiguous problem, trade-offs, depth where it matters | Practise the method in [66](66-frontend-system-design.md): requirements, constraints, architecture, deep dives, failure modes |
+| General system design (many principal loops) | Breadth beyond the frontend: estimates, building blocks, failure modes | The method and building blocks in [79](79-distributed-systems-design-for-frontend-architects.md) |
 | Architecture deep dive on your own work | Real judgement and real scope | Prepare two projects: the context, the options you rejected and why, what went wrong, the measured result |
 | Technical leadership (behavioural) | Influence, conflict, mentoring, strategy | Six to eight stories, each with situation, action and a measurable result; at least one where you were wrong |
 | Coding or machine coding | Still technical; clean, tested code under time pressure | The drills in [74](74-machine-coding-drills.md): debounce, Promise utilities, a virtual list, hooks, UI components |
