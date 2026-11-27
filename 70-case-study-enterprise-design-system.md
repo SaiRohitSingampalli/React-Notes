@@ -570,6 +570,9 @@ A: From code, not surveys: the share of interactive elements in product code tha
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E70](E70-case-study-enterprise-design-system.md) has the token build, the contrast gate, the Switch and the usage scanner, with tests. `node extract-examples.mjs 70` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - [Design Tokens Technical Reports 2025.10](https://www.designtokens.org/TR/2025.10/): the Format, Color and Resolver modules.

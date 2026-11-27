@@ -232,6 +232,9 @@ A: They can mislead. IRR exaggerates when the early losses are small: our design
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E78](E78-business-cases-and-investment-arguments.md) has the business-case model with the Prism inputs, and a test that finds the break-even point. `node extract-examples.mjs 78` writes it out as a project; it has no dependencies, so just run `npm test` in it.
+
 ## Further reading
 
 - Donald Reinertsen, *The Principles of Product Development Flow* (2009): cost of delay and sequencing.

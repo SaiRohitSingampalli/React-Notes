@@ -117,7 +117,7 @@ function render(state: RemoteData<User>) {
 
 Apply the same idea to component props:
 
-```ts
+```tsx
 type ButtonProps =
   | ({ as: 'a'; href: string } & Omit<React.ComponentProps<'a'>, 'href'>)
   | ({ as?: 'button' } & React.ComponentProps<'button'>);

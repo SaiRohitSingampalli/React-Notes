@@ -546,6 +546,9 @@ Bailouts (subtree skipping via pending flags), event delegation, error boundarie
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E11](E11-build-your-own-react.md) has mini React, its full test suite, and the Todos example running in a browser (`npm run dev`). `node extract-examples.mjs 11` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - Rodrigo Pombo, *Build your own React* (Didact): <https://pomb.us/build-your-own-react/>

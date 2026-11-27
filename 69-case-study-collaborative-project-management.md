@@ -587,6 +587,9 @@ A: With a seeded simulation: several replicas, random operations, random partial
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E69](E69-case-study-collaborative-project-management.md) has the board model, the React binding, the convergence fuzzer and a test against a real Hocuspocus server. `node extract-examples.mjs 69` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - [Yjs documentation](https://docs.yjs.dev/): shared types, transactions, `UndoManager`, awareness and providers.

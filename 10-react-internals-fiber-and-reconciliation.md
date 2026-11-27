@@ -204,16 +204,16 @@ After `D` (old index 3) is placed, `lastPlacedIndex = 3`, and every following it
 
 ```tsx
 // Same type, same position → props update, state kept
-<Profile userId={a} />  →  <Profile userId={b} />
+const before1 = <Profile userId={a} />, after1 = <Profile userId={b} />;
 
 // Same type, different key → unmount + mount (state reset)
-<Profile key={a} userId={a} />  →  <Profile key={b} userId={b} />
+const before2 = <Profile key={a} userId={a} />, after2 = <Profile key={b} userId={b} />;
 
 // Different type at the same position → subtree destroyed
-{isEditing ? <EditForm /> : <ReadOnlyView />}
+const view = isEditing ? <EditForm /> : <ReadOnlyView />;
 
 // Wrapping changes the type at that position → remount!
-{isPremium ? <Card><Plan /></Card> : <Plan />}   // <Plan> loses state when toggling
+const plan = isPremium ? <Card><Plan /></Card> : <Plan />; // <Plan> loses state when toggling
 ```
 
 ---

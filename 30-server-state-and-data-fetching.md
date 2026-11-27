@@ -168,6 +168,9 @@ function ProductPanel({ id }: { id: string }) {
 Global behaviour for background failures:
 
 ```ts
+import { QueryCache, QueryClient } from '@tanstack/react-query';
+import { captureError } from '@/shared/observability';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -178,7 +181,7 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       if (query.state.data !== undefined) toast.warn('Showing saved data; refresh failed'); // background refetch failed
-      reportError(error, { queryKey: query.queryKey });
+      captureError(error, { queryKey: query.queryKey });
     },
   }),
 });
@@ -295,7 +298,7 @@ More on degraded modes in [40](40-resilience-and-reliability.md).
 
 ## 9. Testing data fetching
 
-```ts
+```tsx
 // Fresh client per test, no retries, MSW for network
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });

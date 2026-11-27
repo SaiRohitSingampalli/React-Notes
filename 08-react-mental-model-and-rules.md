@@ -282,7 +282,7 @@ Principles for structuring state (from the React docs, worth memorising):
 
 ```tsx
 // ❌ Configuration explosion
-<Card title="Plan" subtitle="Pro" showBadge badgeText="Popular" footerButtons={[…]} />
+<Card title="Plan" subtitle="Pro" showBadge badgeText="Popular" footerButtons={[/* … */]} />
 
 // ✅ Composition with children and slots
 <Card>

@@ -134,8 +134,10 @@ StrictMode warns about them. Concurrent features make them actively dangerous.
 
 ```tsx
 // ❌ Mirroring props into state: state goes stale or fights the parent
-static getDerivedStateFromProps(props: Props, state: State) {
-  return { email: props.email };   // overwrites user edits on every parent re-render!
+class EmailInput extends Component<Props, State> {
+  static getDerivedStateFromProps(props: Props, state: State) {
+    return { email: props.email }; // overwrites user edits on every parent re-render!
+  }
 }
 
 // ✅ Alternatives
@@ -183,7 +185,9 @@ The hooks version tracks the previous `scrollHeight` in a ref and adjusts in `us
 
 ```tsx
 class Row extends React.PureComponent<{ item: Item; onSelect: (id: string) => void }> {
-  render() { /* re-renders only when props are shallowly different */ }
+  render() { // re-renders only when props are shallowly different
+    return <li onClick={() => this.props.onSelect(this.props.item.id)}>{this.props.item.name}</li>;
+  }
 }
 ```
 
@@ -196,6 +200,9 @@ class Row extends React.PureComponent<{ item: Item; onSelect: (id: string) => vo
 ## 7. Error boundaries
 
 ```tsx
+import * as React from 'react';
+import { captureError } from '@/shared/observability';
+
 type BoundaryProps = { fallback: (error: Error, reset: () => void) => React.ReactNode; children: React.ReactNode; resetKeys?: unknown[] };
 type BoundaryState = { error: Error | null };
 
@@ -207,7 +214,7 @@ export class ErrorBoundary extends React.Component<BoundaryProps, BoundaryState>
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    reportError(error, { componentStack: info.componentStack }); // commit phase: side effects OK
+    captureError(error, { componentStack: info.componentStack }); // commit phase: side effects OK
   }
 
   componentDidUpdate(prev: BoundaryProps) {

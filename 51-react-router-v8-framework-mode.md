@@ -8,26 +8,13 @@
 
 ## TL;DR
 
-- **React Router is where Remix went.** Remix v2 merged into React Router v7 (Nov 2024) as *framework mode*. v8 shipped on 17 June 2026, and React Router 6 and Remix v2 are end-of-life. **Remix 3 is a different, non-React framework**, so a "Remix app" in a React codebase means React Router.
-- **Three modes, one package.**
-  - *Declarative*: `<BrowserRouter>`, routing only.
-  - *Data*: `createBrowserRouter`, with loaders and actions in the browser.
-  - *Framework*: a Vite plugin, `routes.ts`, route modules, generated types, and SSR, SPA or prerendering.
-- **What v8 changed:**
-  - ESM-only.
-  - Middleware is always on, and `context` is a `RouterContextProvider`.
-  - `react-router-dom` is gone.
-  - `meta` receives `loaderData`.
-  - Loaders get the raw request, plus `url` for the normalised URL.
-  - Route-module splitting is on by default.
-  - Minimums: Node 22.22+, React 19.2.7+, Vite 7+.
-- **The architecture in one line:** URL → match → middleware → loaders in parallel → render (streaming what's still pending). Every mutation goes through an `action` and is followed by automatic revalidation. Forms work before JavaScript loads.
-- **Enforce auth in middleware, not in parent loaders.** Loaders run in parallel, so a parent loader can't protect a child.
-- **Security defaults:**
-  - Built in: an `Origin` check on UI-route actions (`allowedActionOrigins`).
-  - Not covered: requests *without* an `Origin` header, and resource routes.
-  - Yours to configure: CSP nonces through `<ServerRouter nonce>` and SRI through `subResourceIntegrity`.
-- **RSC support is experimental** (`unstable_reactRouterRSC` with `@vitejs/plugin-rsc`). In 2026, React Router's production story is loaders and actions. If server components are your requirement, see [47](47-nextjs-app-router-architecture.md).
+- **React Router is where Remix went.** Remix v2 became React Router 7's *framework mode*. v8 shipped on 17 June 2026, and React Router 6 and Remix v2 are end-of-life. **Remix 3 is a different, non-React framework** (§1.1).
+- **Three modes, one ladder:** Declarative, Data and Framework. Teams can climb it one step at a time (§1.2).
+- **v8 is a cleanup release:** ESM-only, middleware always on, no `react-router-dom`, and higher minimums. The full list and the upgrade path are in §14.
+- **The architecture in one line.** URL → match → middleware → loaders in parallel → render, streaming what's still pending. Every mutation goes through an `action` and is followed by revalidation, and forms work before JavaScript loads.
+- **Enforce auth in middleware, not in parent loaders.** Loaders run in parallel, so a parent can't protect a child (§6).
+- **The built-in `Origin` check isn't complete CSRF protection.** It skips requests without an `Origin` header, and resource routes. CSP nonces and SRI are yours to configure (§10).
+- **RSC support is experimental.** React Router's production story is loaders and actions. If server components are a requirement, see [47](47-nextjs-app-router-architecture.md).
 
 ---
 
@@ -401,7 +388,7 @@ function readDraft(): { density: 'comfortable' | 'compact' } | null {
 Use `clientLoader` for a client cache in front of the server, browser-only state, or calling a public API directly from the browser to skip a server hop. With `hydrate = true` and a `HydrateFallback` export, the server renders the fallback instead of the component. That trades first paint for correctness, so reserve it for data that genuinely can't exist on the server.
 
 > [!NOTE]
-> **TanStack Query or loaders?** They compose. Loaders decide *what a URL needs*. A client cache decides *how long it stays fresh* and handles polling, infinite lists and optimistic merges. A common pattern: `clientLoader` calls `queryClient.ensureQueryData(...)`, and components read with `useQuery` ([30](30-server-state-and-data-fetching.md)). Don't run both for the same data with different keys.
+> **TanStack Query or loaders?** They compose. Loaders decide *what a URL needs*; a client cache decides *how long it stays fresh*. A common pattern: `clientLoader` calls `queryClient.ensureQueryData(...)`, and components read with `useQuery` ([30](30-server-state-and-data-fetching.md)). When to bring a cache in at all, and how to stop two owners disagreeing, is the hard decision at the end of this chapter's decision framework.
 
 ### 7.3 Opting out of revalidation
 
@@ -585,7 +572,7 @@ Against the build, every inline and module script carried the request's nonce (1
 // app/entry.server.tsx (excerpt)
 export const handleError: HandleErrorFunction = (error, { request }) => {
   if (request.signal.aborted) return; // client navigated away: not an error worth paging on
-  reportError(error, { path: new URL(request.url).pathname, method: request.method });
+  captureError(error, { path: new URL(request.url).pathname, method: request.method }); // from '@/shared/observability'
 };
 
 export const instrumentations: ServerInstrumentation[] = [
@@ -685,6 +672,31 @@ flowchart LR
 
 **Migration path.** Declarative → Data (move data fetching into loaders, route by route) → Framework in SPA mode (`routes.ts`, typegen, no hosting change) → `ssr: true` for the sections that benefit → prerender for public pages.
 
+### The hard decision: who owns server state, loaders or a query cache
+
+Framework mode brings a data layer: loaders fetch what a URL needs, actions write, and the router revalidates. Many teams arrive with another one already, usually TanStack Query, and the tempting answer is to keep both "for now". Two owners for the same data is how two screens end up disagreeing. Decide which one owns each kind of data.
+
+**Loaders alone** are the simpler system. Every piece of server state comes from a loader, and every write goes through an action and is followed by revalidation. There's one source of truth per URL, SSR needs no extra code, and nothing goes stale between navigations. What you give up:
+
+- Revalidation reloads every active loader after every action. A write on a page with six loaders costs six requests unless `shouldRevalidate` narrows it (§7.3).
+- There's no cache across routes, so going back to a list fetches it again.
+- Polling, infinite lists and optimistic updates across screens are yours to build.
+
+**A query cache as the owner, with loaders as primers,** is more capable and has more moving parts. Loaders or `clientLoader`s call `ensureQueryData`, the server dehydrates the cache into the page, components read with `useQuery`, and actions invalidate query keys. You get caching across routes, background refresh, deduplication and optimistic updates. You pay with:
+
+- Two invalidation systems to keep aligned. Route revalidation still runs unless you turn it off for the routes whose data the cache owns.
+- Query keys that must encode everything the URL encodes (tenant, filters, page). Otherwise a cached result leaks across contexts, as the tenant switch in [67](67-case-study-enterprise-saas-dashboard.md) shows.
+- One more model for every engineer to learn.
+
+**How I decide.** Start with loaders alone. Move a kind of data to the query cache when one of these is measured, not anticipated:
+
+- the same data appears on many routes, and revalidation requests show up in your request budget;
+- the data must stay live while the page is open (polling, presence, prices);
+- a write must update several screens optimistically before the server answers;
+- the app must work offline.
+
+When you move it, move it completely. The cache owns that data, loaders only prime it, actions invalidate its keys, and `shouldRevalidate` stops the router reloading it. Data that hasn't met the bar stays in loaders. Record the split in an ADR ([63](63-architecture-governance-and-adrs.md)); otherwise the next engineer adds a third path.
+
 ---
 
 ## Pitfalls and anti-patterns
@@ -738,6 +750,9 @@ When the HTML doesn't need per-request content (internal tools, authenticated da
 Do it in two hops, each releasable. First, move to React Router 7 with the official codemod: package renames, `routes.ts` or `flatRoutes()`. Ship it. Then turn on the v8 future flags one PR at a time (middleware, split route modules, Vite Environment API, request pass-through, trailing-slash data URLs) and fix the deprecations: `meta` `loaderData`, `react-router-dom` imports, `getLoadContext`. Raise Node, React and Vite to the v8 minimums, check ESM-only compatibility, and install v8. Canary every hop with RUM and error budgets ([62](62-cicd-release-engineering-and-feature-flags.md)).
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E51](E51-react-router-v8-framework-mode.md) has the app, with a smoke test that builds it, starts the production server, and checks prerendering, per-request nonces and the webhook route. `node extract-examples.mjs 51` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

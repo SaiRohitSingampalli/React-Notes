@@ -531,6 +531,9 @@ Not for the framework baseline. In my measurements, a zoneless Angular 22.3 app 
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E56](E56-angular-architecture-and-dependency-injection.md) has the Angular halves of the comparisons and both interop directions, with specs (in `src/app/compare/` and `src/app/interop/` of the Angular workspace). `node extract-examples.mjs 56` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - React docs, *Thinking in React*: <https://react.dev/learn/thinking-in-react> · *React 19: support for custom elements*: <https://react.dev/blog/2024/12/05/react-19#support-for-custom-elements>

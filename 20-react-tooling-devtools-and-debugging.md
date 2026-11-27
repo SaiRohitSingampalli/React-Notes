@@ -169,7 +169,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   ...tseslint.configs.recommendedTypeChecked,
-  reactHooks.configs.recommended,        // rules-of-hooks, exhaustive-deps + compiler-derived rules
+  reactHooks.configs.flat.recommended,   // flat config; `configs.recommended` is the legacy eslintrc format
   jsxA11y.flatConfigs.recommended,
   {
     rules: {

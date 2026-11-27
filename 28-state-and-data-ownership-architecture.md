@@ -10,7 +10,7 @@
 
 - Classify every piece of state into one of **eight categories** (component UI, shared client, server, URL, form, optimistic, persistent, real-time). Each category has a natural owner, a natural tool and a different set of failure modes.
 - **One source of truth per datum.** Everything else is a **derived view** or an explicitly managed **cache** with an owner and an invalidation rule.
-- **Server state is a cache.** It's stale by default, deduplicated, garbage-collected and invalidated by whoever performs the mutation. Never copy it into a client store.
+- **Server state is a cache.** It's stale by default, deduplicated, garbage-collected and invalidated by whoever performs the mutation. Don't copy it into a client store by default; when you do so deliberately (an editing draft, an offline-first store), give the copy an owner, a base version and a sync rule.
 - **URL state is application state.** Filters, sorting, pagination, tabs and selected entities belong in the URL when they should survive reload, sharing and back/forward.
 - Design for **mutation races** (out-of-order responses, concurrent edits, retries) with request sequencing, per-entity mutation queues, version checks (ETag/`If-Match`) and **idempotency keys**.
 - **Optimistic updates** need a rollback path, temporary-ID mapping and a conflict policy ("server wins and notify", merge, or CRDT).
@@ -60,15 +60,17 @@ flowchart TD
 4. **Promote and demote deliberately.** State starts local and gets promoted to URL, store or server only when a requirement demands it. It moves back down when the requirement disappears.
 5. **Scope state to its lifetime.** Per component, per route, per session, per user, per tenant, per device. On the server, **per request**.
 
-### What must never be duplicated
+### What not to duplicate, and when it's deliberate
 
-| Never copy… | …into | Because |
-|---|---|---|
-| Server entities | A client store (Redux, Zustand) | Two caches with different freshness; mutations update one and not the other |
-| URL state | Local `useState` mirrors | Back/forward and shared links diverge from the UI |
-| Form drafts | A global store (by default) | Leaks between forms; reset bugs; re-render storms |
-| Permissions and entitlements | Long-lived client state without refresh | Revoked access persists ([45](45-authentication-and-authorization.md)) |
-| Auth tokens | JS-readable storage | XSS exfiltration ([43](43-frontend-security-architecture.md)) |
+*Default* rows describe what to do unless you have a specific reason and the safeguards listed; *requirement* rows have no exceptions.
+
+| Don't copy… | …into | Because | Strength | Deliberate exceptions, and their safeguards |
+|---|---|---|---|---|
+| Server entities | A client store (Redux, Zustand) | Two caches with different freshness; mutations update one and not the other | Default | An **editing draft** (a working copy of a record being edited, stored with the version it started from so conflicts are detected on save) or an **offline-first store** whose local database syncs by explicit rules ([34](34-realtime-offline-and-collaboration.md)). Either way: one owner, a base version, a sync or discard rule |
+| URL state | Local `useState` mirrors | Back/forward and shared links diverge from the UI | Default | A text box's in-progress value while typing, committed to the URL on debounce or submit |
+| Form drafts | A global store | Leaks between forms; reset bugs; re-render storms | Default | A multi-step flow spanning routes, in a store scoped to that flow and reset when it ends |
+| Permissions and entitlements | Long-lived client state without refresh | Revoked access persists ([45](45-authentication-and-authorization.md)) | Requirement for enforcement | Client copies may drive what the UI shows, refreshed on focus and expiry; the server always enforces |
+| Auth tokens | JS-readable storage | XSS exfiltration ([43](43-frontend-security-architecture.md)) | Requirement for `localStorage` and `sessionStorage` | Where a BFF isn't possible: short-lived access tokens in memory only |
 
 ---
 
@@ -110,12 +112,14 @@ flowchart LR
 
 ### Query-level caching vs entity normalisation
 
-| | Query-level cache (TanStack Query, SWR) | Normalised entity cache (Apollo, Relay, RTK Query with entity adapters) |
+| | Query-level cache (TanStack Query, SWR, RTK Query) | Normalised entity cache (Apollo Client, Relay, urql's Graphcache) |
 |---|---|---|
 | Model | Each query key stores its response | Entities stored once by ID; queries reference them |
 | Update after mutation | Invalidate or patch the affected queries | Update the entity; every query showing it updates |
 | Complexity | Low | Higher (cache policies, key fields, garbage collection) |
 | Best for | REST, most apps | GraphQL, heavily cross-referenced data, many views of the same entities |
+
+RTK Query belongs in the first column. It stores each query result independently and deliberately doesn't deduplicate the same entity across requests: three queries that each return to-do 1 cache three copies, kept consistent by tag invalidation, which refetches every endpoint that provides the tag. `createEntityAdapter` in `transformResponse` normalises the data *within one response*; it doesn't share entities between queries. If you need one copy of each entity across many views, that's a normalised cache's job.
 
 ---
 
@@ -283,6 +287,7 @@ export function loadPrefs(): PrefsV3 {
   try {
     let data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!data) return defaultPrefs;
+    if (data.version > CURRENT_VERSION) return defaultPrefs; // a newer build wrote this: use defaults, don't save over it
     while (data.version < CURRENT_VERSION) data = migrations[data.version](data);
     return PrefsSchema.parse(data);            // validate after migrating
   } catch {
@@ -293,7 +298,7 @@ export function loadPrefs(): PrefsV3 {
 
 | Concern | Rule |
 |---|---|
-| Versioning | Every persisted blob has a `version`, with migrations as pure functions, validated by a schema |
+| Versioning | Every persisted blob has a `version`, with migrations as pure functions, validated by a schema. A version *newer* than the code means an older build is running (a rollback, or two tabs on different releases): use defaults for now, but write only when the user changes something, so the newer data isn't overwritten on load |
 | Privacy | No PII or sensitive data in persistent storage on shared or unknown devices. Clear it on logout |
 | Multi-user devices | Namespace keys by user and tenant (`acme:{tenantId}:{userId}:…`) |
 | Eviction | Browsers evict storage (Safari's ITP limits). Treat local data as a cache unless it's synced ([06](06-modern-web-platform-apis.md)) |

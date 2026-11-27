@@ -38,7 +38,7 @@
 
 ```tsx
 // Configuration explosion (❌)
-<Modal title="Delete project" showCloseButton footerAlign="right" primaryLabel="Delete" onPrimary={…} secondaryLabel="Cancel" />
+<Modal title="Delete project" showCloseButton footerAlign="right" primaryLabel="Delete" onPrimary={handleDelete} secondaryLabel="Cancel" />
 
 // Composition (✅)
 <Dialog>

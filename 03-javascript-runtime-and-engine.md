@@ -365,6 +365,7 @@ Design rule: **every async API in your codebase should accept an `AbortSignal`.*
 ```ts
 // Run at most `limit` tasks concurrently, preserving result order
 export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+  if (!Number.isInteger(limit) || limit < 1) throw new RangeError(`limit must be a positive integer, got ${limit}`); // 0 would run nothing
   const results = new Array<R>(items.length);
   let next = 0;
   async function worker() {
@@ -482,6 +483,9 @@ Deoptimisation. TurboFan or Maglev compiled it under assumptions from type feedb
 ESM is the standard, is static (so tree-shaking and analysis work), supports top-level await and live bindings, and runs natively in browsers. The main blocker for ESM-only packages was CJS consumers, and Node's support for `require()` of ESM in current LTS releases largely removed it. ESM-only also removes the dual-package hazard and halves build and test matrices.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E03](E03-javascript-runtime-and-engine.md) has this chapter's `mapLimit`, with tests for result order, the concurrency cap and the limit guard. `node extract-examples.mjs 03` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

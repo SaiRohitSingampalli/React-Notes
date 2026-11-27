@@ -242,7 +242,7 @@ function LocalTimeZone({ serverValue }: { serverValue?: string }) {
 
 ## 6. Partial Pre-rendering (19.2)
 
-```ts
+```tsx
 import { prerender } from 'react-dom/static';
 import { resume } from 'react-dom/server';
 

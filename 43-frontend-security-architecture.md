@@ -107,11 +107,15 @@ export function SafeHtml({ html, className }: { html: string; className?: string
 ```ts
 // shared/security/safe-url.ts: for any URL that came from users, CMS content or query strings
 const ALLOWED_PROTOCOLS = new Set(['https:', 'http:', 'mailto:', 'tel:']);
+const PARSE_BASE = 'https://relative.invalid'; // only for parsing; never part of the result
 
-export function safeUrl(input: string, base = window.location.origin): string | undefined {
+/** The URL if its scheme is safe, else undefined. Relative URLs stay relative. Safe to call on the server. */
+export function safeUrl(input: string): string | undefined {
+  const value = input.trim();
   try {
-    const url = new URL(input, base);
-    return ALLOWED_PROTOCOLS.has(url.protocol) ? url.href : undefined;
+    const url = new URL(value, PARSE_BASE);
+    if (!ALLOWED_PROTOCOLS.has(url.protocol)) return undefined;
+    return url.origin === PARSE_BASE ? value : url.href;
   } catch {
     return undefined;
   }
@@ -482,6 +486,9 @@ Layered controls. Commit lockfiles and install deterministically. Disable instal
 Because the server can't know whether a request came from your UI. Anyone can replay, script or modify requests. UI checks improve the experience by not showing actions users can't take. The server must authorise every action against the session, tenant and resource, at the data-access layer. Server Functions and Route Handlers are public endpoints ([44](44-rsc-security-threat-model.md), [45](45-authentication-and-authorization.md)).
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E43](E43-frontend-security-architecture.md) has `safeUrl` and `serializeForScript`, with tests that try the usual disguises. `node extract-examples.mjs 43` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

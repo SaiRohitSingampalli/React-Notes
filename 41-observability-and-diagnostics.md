@@ -67,7 +67,7 @@ flowchart LR
 | React render errors | Root `onUncaughtError` / `onCaughtError` / `onRecoverableError`, plus boundary `onError` ([40](40-resilience-and-reliability.md)) |
 | Uncaught exceptions outside React | `window.addEventListener('error', …)` |
 | Unhandled promise rejections | `window.addEventListener('unhandledrejection', …)` |
-| Handled-but-important failures | Explicit `reportError(error, context)` in catch blocks |
+| Handled-but-important failures | Explicit `captureError(error, context)` in catch blocks |
 | Failed network calls | The HTTP client reports Problem Details with endpoint and status ([33](33-api-integration-bff-and-contracts.md)) |
 | Chunk-load failures | The `vite:preloadError` handler or your framework's equivalent |
 
@@ -102,7 +102,8 @@ function scrub(text: string): string {
   return text.replace(EMAIL, '[email]').replace(LONG_NUMBER, '[number]');
 }
 
-export function reportError(error: unknown, extra: Record<string, unknown> = {}): void {
+// Not named reportError: that's a DOM global taking one argument, which a missing import would silently call
+export function captureError(error: unknown, extra: Record<string, unknown> = {}): void {
   const err = error instanceof Error ? error : new Error(String(error));
   const fingerprint = `${err.name}|${err.message}|${err.stack?.split('\n')[1]?.trim() ?? ''}`;
   const count = (seen.get(fingerprint) ?? 0) + 1;
@@ -124,8 +125,8 @@ export function reportError(error: unknown, extra: Record<string, unknown> = {})
 }
 
 export function installGlobalHandlers(): void {
-  window.addEventListener('error', (event) => reportError(event.error ?? event.message, { source: 'window.error' }));
-  window.addEventListener('unhandledrejection', (event) => reportError(event.reason, { source: 'unhandledrejection' }));
+  window.addEventListener('error', (event) => captureError(event.error ?? event.message, { source: 'window.error' }));
+  window.addEventListener('unhandledrejection', (event) => captureError(event.reason, { source: 'unhandledrejection' }));
 }
 ```
 

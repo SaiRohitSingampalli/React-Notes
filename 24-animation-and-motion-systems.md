@@ -122,9 +122,11 @@ Accordion height without measuring, using grid tracks:
 ## 4. View Transitions in React
 
 ```tsx
+import { ViewTransition, type ReactNode } from 'react';
+
 // Route-level transitions: frameworks run navigations in transitions,
 // so wrapping page content enables enter/exit/shared-element animation
-export function PageTransition({ children, routeKey }: { children: React.ReactNode; routeKey: string }) {
+export function PageTransition({ children, routeKey }: { children: ReactNode; routeKey: string }) {
   return (
     <ViewTransition key={routeKey} enter="page-enter" exit="page-exit" default="none">
       {children}

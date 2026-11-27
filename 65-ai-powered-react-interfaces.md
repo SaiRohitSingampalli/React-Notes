@@ -440,6 +440,9 @@ The approval round-trips through the client, so the client can change what was a
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E65](E65-ai-powered-react-interfaces.md) has the tools, the route and the chat UI, tested against a scripted mock model, with no API key. `node extract-examples.mjs 65` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - AI SDK documentation: <https://ai-sdk.dev/docs> · *Tool calling and human-in-the-loop*: <https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-tool-usage>

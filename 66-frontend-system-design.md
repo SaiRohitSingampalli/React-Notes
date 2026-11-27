@@ -480,6 +480,9 @@ For moderate lists, `content-visibility: auto` and pagination can be simpler.
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E66](E66-frontend-system-design.md) has the typeahead core, with tests for debouncing, cancellation and response ordering. `node extract-examples.mjs 66` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - WAI-ARIA Authoring Practices Guide (combobox, feed, grid, dialog patterns): <https://www.w3.org/WAI/ARIA/apg/patterns/>

@@ -553,6 +553,9 @@ I'd separate server state from client state. Server data has its own lifecycle (
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E56](E56-angular-architecture-and-dependency-injection.md) has the signals, Signal Forms, RxJS and SignalStore examples, with specs (in `src/app/reactivity/` of the Angular workspace). `node extract-examples.mjs 56` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - Angular docs, *Signals*: <https://angular.dev/guide/signals> · *linkedSignal*: <https://angular.dev/guide/signals/linked-signal> · *Effects*: <https://angular.dev/guide/signals/effect>

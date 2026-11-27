@@ -223,13 +223,13 @@ flowchart TB
 
 ```tsx
 // ✅ pass the function
-<button onClick={handleClick}>Save</button>
+const save = <button onClick={handleClick}>Save</button>;
 
 // ❌ calls it during render (and every render)
-<button onClick={handleClick()}>Save</button>
+const wrong = <button onClick={handleClick()}>Save</button>;
 
 // ✅ arguments via closure
-<button onClick={() => remove(item.id)}>Remove</button>
+const removeButton = <button onClick={() => remove(item.id)}>Remove</button>;
 
 // ✅ currentTarget is the element the handler is attached to; target is what was clicked
 function onRowClick(e: React.MouseEvent<HTMLTableRowElement>) {
@@ -365,12 +365,14 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 }
 
 // named slots via props
-<Layout sidebar={<Nav />} header={<TopBar />}>
-  <Content />
-</Layout>
+const page = (
+  <Layout sidebar={<Nav />} header={<TopBar />}>
+    <Content />
+  </Layout>
+);
 
 // render prop (pass a function when the child must supply data)
-<DataList items={users} renderItem={(u) => <UserRow user={u} />} />
+const list = <DataList items={users} renderItem={(u) => <UserRow user={u} />} />;
 ```
 
 Composition is the primary reuse mechanism in React: there is no component inheritance. Advanced patterns (compound components, headless hooks, `asChild`) are in [22](22-component-architecture-and-patterns.md).
@@ -381,12 +383,13 @@ Composition is the primary reuse mechanism in React: there is no component inher
 
 ```tsx
 import { createRoot, hydrateRoot } from 'react-dom/client';
+import { captureError } from '@/shared/observability';
 
 // Client-rendered app
 const root = createRoot(document.getElementById('root')!, {
   identifierPrefix: 'app-',                // useId prefix (multiple roots on one page)
-  onUncaughtError: (error, info) => reportError(error, info.componentStack),
-  onCaughtError: (error, info) => reportError(error, info.componentStack),      // caught by error boundaries
+  onUncaughtError: (error, info) => captureError(error, { componentStack: info.componentStack }),
+  onCaughtError: (error, info) => captureError(error, { componentStack: info.componentStack }), // caught by error boundaries
   onRecoverableError: (error, info) => reportWarning(error),                     // e.g. hydration mismatch recovered
 });
 root.render(<App />);
@@ -432,7 +435,7 @@ In **development only**, StrictMode:
 <input id="email" type="email" autoComplete="email" aria-describedby="email-hint" />
 <p id="email-hint">We'll never share your email.</p>
 
-<button type="button" aria-expanded={open} aria-controls="menu" onClick={toggle}>Options</button>
+<button type="button" aria-expanded={menuOpen} aria-controls="menu" onClick={toggleMenu}>Options</button>
 
 <img src={src} alt="" />  {/* decorative: empty alt, not missing alt */}
 ```

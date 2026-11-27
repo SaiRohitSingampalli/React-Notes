@@ -292,6 +292,9 @@ A: The same event can arrive twice, over a socket and again in a catch-up fetch,
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E79](E79-distributed-systems-design-for-frontend-architects.md) has the token bucket and the consistent-hashing ring, with tests. `node extract-examples.mjs 79` writes it out as a project; it has no dependencies, so just run `npm test` in it.
+
 ## Further reading
 
 - Martin Kleppmann, *Designing Data-Intensive Applications* (2017): replication, partitioning, consistency and stream processing.

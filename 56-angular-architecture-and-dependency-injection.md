@@ -8,31 +8,12 @@
 
 ## TL;DR
 
-- **Angular 22 (June 2026) is the current major; 22.3 shipped on 18 November 2026.** From v22, majors arrive every **12 months** (v23 around June 2027). Each is supported for 24 months: 12 active plus 12 LTS. v22 requires TypeScript 6 and drops Node 20.
-- **The modern defaults, all on in a new v22 app:**
-  - Standalone components (no NgModules).
-  - **Zoneless** change detection (no Zone.js since v21).
-  - **OnPush** by default (v22; the old default is now called `Eager`).
-  - Strict template type checking.
-  - The Fetch backend for `HttpClient`.
-  - Vitest as the test runner.
-  - Signals everywhere: inputs, queries, `resource` and Signal Forms, all stable in v22.
-- **DI is the architecture.**
-  - The composition root is `app.config.ts`.
-  - Services are root singletons (`@Service()`, new in v22) or scoped deliberately: to a lazy route, to a component subtree, or loaded on demand with `injectAsync()`.
-  - Features contribute to the shell through **multi providers**, not imports.
-- **Two injector trees.** Lookup walks the *element* injectors (component and directive providers) up the DOM, then the *environment* injectors (route → root → platform). Knowing which tree a provider lives in explains most "why do I have two instances?" bugs.
-- **Change detection is now explicit.** In a zoneless, OnPush app, a view updates when:
-  - a signal it reads changes;
-  - an input reference changes;
-  - an event fires in its template;
-  - `markForCheck()` runs.
-
-  Mutating a plain field inside `setTimeout` no longer updates the screen, by design.
-- **Upgrading is safe by default and modernising is opt-in.**
-  - `ng update` to v22 marks every component that had no strategy as `Eager` and sets `strictTemplates: false` where it wasn't already on.
-  - The v21 update added `provideZoneChangeDetection()` where an app relied on Zone.js.
-  - Those markers are your modernisation backlog.
+- **Angular 22 (June 2026) is the current major; 22.3 shipped on 18 November 2026.** Majors now arrive every **12 months**, each supported for 24 (12 active plus 12 LTS). v22 requires TypeScript 6 and drops Node 20 (§1.1).
+- **The modern defaults are all on in a new v22 app:** standalone components, **zoneless** change detection, **OnPush** by default (the old default is now called `Eager`), strict template checking, the Fetch backend for `HttpClient`, Vitest, and stable signal APIs from inputs to `resource` and Signal Forms (§1.2).
+- **DI is the architecture.** `app.config.ts` is the composition root. Services are root singletons (`@Service()`, new in v22) or scoped deliberately: to a lazy route, to a component subtree, or loaded on demand with `injectAsync()`. Features extend the shell through **multi providers**, not imports (§2, §4).
+- **Two injector trees.** Lookup walks the *element* injectors up the DOM, then the *environment* injectors (route → root → platform). Which tree a provider lives in explains most "why are there two instances?" bugs (§4.1).
+- **Change detection is explicit.** In a zoneless OnPush app, a view updates when a signal it reads changes, an input reference changes, an event fires in its template, or `markForCheck()` runs. Mutating a plain field in `setTimeout` no longer updates the screen, by design (§6).
+- **Upgrading is safe; modernising is opt-in.** `ng update` preserves behaviour: it marks components `Eager`, leaves `strictTemplates` off where it was off, and keeps Zone.js where the app relied on it. Those markers are your modernisation backlog (§6.4).
 
 ---
 
@@ -679,6 +660,28 @@ In an Nx monorepo these become libraries with tags, and `@nx/enforce-module-boun
 
 **Migration path.** Upgrade first (the schematics preserve behaviour). Turn on strict templates and fix errors. Convert services to `inject()` (`ng generate @angular/core:inject-migration` does most of it). Move template state to signals leaf-first, deleting `Eager` markers as you go. Remove Zone.js last.
 
+### The hard decision: should components reach data directly, or through a facade?
+
+DI makes it easy to put a service between every component and the API, and many enterprise codebases standardised on that: one facade per feature, wrapping the API client and the feature's state. With `httpResource`, signals and SignalStore all stable in v22, the question is open again, and teams argue about it in code review every week.
+
+**Components reach data directly.** A component declares what it reads with `httpResource` over a thin, typed API service, and writes through the same service.
+
+- *For:* the data dependency is visible where it's used. Requests are cancelled with the component. There's no layer to maintain, and deleting a screen deletes its data code.
+- *Against:* state shared by sibling components has to be lifted somewhere. `httpResource` has no shared cache, so two components reading the same invoice make two requests. Tests stub HTTP rather than a service.
+
+**Components go through a facade.** A feature-scoped service exposes signals (`invoices()`, `selected()`) and intent methods (`select(id)`, `void(id, reason)`). Components read and call; they never see HTTP.
+
+- *For:* one place for caching, optimistic updates and rollback, and permission checks. Components stay presentational. The data source can change without touching them. Tests provide a fake facade in one line ([4.9](#49-di-makes-testing-cheap)).
+- *Against:* facades grow into god objects. Many degenerate into pass-throughs, with every method a one-line call to the API. They hide which component needs which data. They also inherit the lifetime questions of wherever they're provided (§4.4).
+
+**How I decide.** Read-only data that one component owns goes direct. Introduce a facade, scoped to the feature's route, when any of these is true:
+
+- two or more components share *mutable* state for the same entity;
+- a write needs coordination: optimistic update, rollback, or refreshing several views;
+- the feature is consumed by other teams, so its data source must stay private.
+
+Give the facade signals and intent methods, not Subjects and observables. Review it against one smell: if most of its methods only forward a call, delete it and let components use the API service. When the facade accumulates enough state transitions to need conventions, that's the point to make it an NgRx SignalStore ([57](57-angular-signals-reactivity-and-rxjs.md)), which is a facade with rules.
+
 ---
 
 ## Pitfalls and anti-patterns
@@ -730,6 +733,9 @@ Nothing is broken. The migration preserved behaviour, and the markers are a prec
 Standalone components import exactly what they use, so the module boundary moves to folders and libraries. I'd define layers (`core`, `ui`, features, `shell`) with lint-enforced dependency rules, or Nx tags in a monorepo. Features are lazy routes that own their providers and expose only a small public API. The shell consumes features through injection tokens and multi providers (navigation, widgets, commands), so adding a feature never edits the shell. Data access stays inside each feature behind a service.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E56](E56-angular-architecture-and-dependency-injection.md) has this chapter's code as an Angular 22 workspace, with specs for providers, interceptor order, guards and route injectors. `node extract-examples.mjs 56` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

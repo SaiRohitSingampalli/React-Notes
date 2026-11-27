@@ -173,10 +173,16 @@ export function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptio
   return f;
 }
 
+// ISO 4217 minor units: how amounts are stored. Intl's display digits differ for some currencies
+// (HUF, IDR and COP display no decimals but are stored with two; IQD with three), so don't use them to convert.
+const MINOR_UNITS: Record<string, number> = {
+  BHD: 3, IQD: 3, JOD: 3, KWD: 3, LYD: 3, OMR: 3, TND: 3, CLF: 4, UYW: 4,
+  BIF: 0, CLP: 0, DJF: 0, GNF: 0, ISK: 0, JPY: 0, KMF: 0, KRW: 0, PYG: 0, RWF: 0, UGX: 0, UYI: 0, VND: 0, VUV: 0, XAF: 0, XOF: 0, XPF: 0,
+};
+export const minorUnits = (currency: string) => MINOR_UNITS[currency] ?? 2;
+
 export function formatMoney(locale: string, { amountMinor, currency }: Money): string {
-  const f = numberFormat(locale, { style: 'currency', currency });
-  const digits = f.resolvedOptions().maximumFractionDigits ?? 2; // JPY 0, EUR 2, KWD 3
-  return f.format(amountMinor / 10 ** digits);
+  return numberFormat(locale, { style: 'currency', currency }).format(amountMinor / 10 ** minorUnits(currency));
 }
 ```
 
@@ -190,7 +196,7 @@ What the platform gives you (real outputs):
 | Numbering system | `ar-EG`, 1234567.89 | `١٬٢٣٤٬٥٦٧٫٨٩` |
 | Compact | `en` / `de`, 1234567 | `1.2M` / `1,2 Mio.` |
 | Units | `en`, 88 km/h | `88 km/h` |
-| Percent | `fr-FR`, 0.256 | `25,6 %` (narrow no-break space) |
+| Percent | `fr-FR`, 0.256 | `25,6 %` (a no-break space before `%`; French groups thousands with a *narrow* no-break space, as in `1 299,50 €`) |
 | Relative time | `en` −1 day / `de` +2 days | `yesterday` / `übermorgen` |
 | Lists | `en` / `es` | `Ana, Ben, and Chen` / `Ana, Ben y Chen` |
 | Display names | `de` region `US`; `en` language `pt-BR` | `Vereinigte Staaten`; `Brazilian Portuguese` |
@@ -473,7 +479,7 @@ flowchart LR
 
 - [ ] Locale model separates UI language, formatting region, currency, time zone and units; fallback chains defined
 - [ ] ICU messages with IDs, defaults, descriptions and named placeholders; no concatenation (lint)
-- [ ] Cached `Intl` formatters for numbers, money (correct minor units), dates, lists, relative times and collation
+- [ ] Cached `Intl` formatters for numbers, money (convert with ISO 4217 minor units, not Intl's display digits), dates, lists, relative times and collation
 - [ ] Time modelled as instants, calendar dates and zoned times; user time zone shared by server and client; Temporal polyfilled where needed
 - [ ] `lang` and `dir` on `<html>`; logical properties enforced; `dir="auto"` and `<bdi>` for user content; mirroring rules documented
 - [ ] Layouts tested with pseudo-locales (expansion, accents, RTL) in CI and visual regression
@@ -502,6 +508,9 @@ Set `dir` on `<html>` from the locale. Migrate physical CSS properties to logica
 Continuous localisation. Strings are extracted on merge and sent to the TMS automatically, translations return as bot PRs, and releases ship with source-language fallback for missing keys, with fallback rates monitored per locale. Pseudo-localisation in CI catches i18n bugs before translation. Reserve string freezes and sign-off for regulated or legal content.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E37](E37-internationalization-and-localization.md) has the formatters and `formatMoney`, and a test that checks the platform-outputs table against your Node's ICU data. `node extract-examples.mjs 37` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

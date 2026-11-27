@@ -72,19 +72,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 Every serious store library uses **`useSyncExternalStore`** under the hood ([12](12-hooks-in-depth.md)): a `subscribe` function, a `getSnapshot` that returns immutable snapshots, and selectors that pick the slice a component needs. This gives tear-free reads under concurrent rendering. The cost is that store updates render **synchronously** (they don't participate in transitions the way `useState` does).
 
 ```ts
-// A 20-line store: the core of what Zustand does
+// A small store: the core of what Zustand does
+import { useRef, useSyncExternalStore } from 'react';
+
 export function createStore<T>(initial: T) {
   let state = initial;
   const listeners = new Set<() => void>();
   return {
     get: () => state,
     set: (updater: (s: T) => T) => { state = updater(state); listeners.forEach((l) => l()); },
-    subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+    subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; },
   };
 }
 
 export function useStore<T, S>(store: ReturnType<typeof createStore<T>>, selector: (s: T) => S): S {
-  return useSyncExternalStore(store.subscribe, () => selector(store.get()), () => selector(store.get()));
+  // useSyncExternalStore needs the same value back until the store changes, so cache the selection per state and
+  // selector. Without this, a derived selector such as (s) => s.todos.filter(...) returns a new array on every call
+  // and React stops with "Maximum update depth exceeded".
+  const cache = useRef<{ state: T; selector: (s: T) => S; selected: S } | null>(null);
+  const getSnapshot = () => {
+    const state = store.get();
+    if (!cache.current || cache.current.state !== state || cache.current.selector !== selector) {
+      cache.current = { state, selector, selected: selector(state) };
+    }
+    return cache.current.selected;
+  };
+  return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
 }
 ```
 
@@ -133,10 +146,10 @@ const { density, setDensity } = useUIStore(useShallow((s) => ({ density: s.densi
 
 ### 3.2 Jotai
 
-```ts
+```tsx
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 
-const selectedShapeIdsAtom = atom<Set<string>>(new Set());
+const selectedShapeIdsAtom = atom(new Set<string>());
 const shapesAtom = atom<Record<string, Shape>>({});
 const selectedShapesAtom = atom((get) => {                      // derived atom
   const shapes = get(shapesAtom);
@@ -376,6 +389,9 @@ When a feature has many states and transitions with rules: multi-step flows, asy
 Create the store per request, inside a client provider (`useState(() => createStore(initial))`), pass initial data from the server as serializable props, and never hold user-specific data in module-level singletons, which are shared across all requests on the server.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E29](E29-client-state-management.md) has the small store, with tests for derived selectors and selective re-rendering. `node extract-examples.mjs 29` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

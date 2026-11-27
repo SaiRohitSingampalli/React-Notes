@@ -55,6 +55,24 @@ The book is organised around **five architectural capabilities**:
 | **Interview angles** | Principal-level questions, each with a model answer |
 | **Further reading** | Primary sources: specs, official docs, maintainers' own writing |
 
+### How to read the rules
+
+Most guidance in this book is a **default**: what to do unless you have a specific reason, and the safeguards that make the exception safe. Where a rule has no exceptions (security, accessibility and correctness requirements such as authorizing every Server Function or never storing tokens in `localStorage`), the text says so. Chapter 28's duplication table shows the convention: each row is labelled *default* or *requirement*, with its deliberate exceptions.
+
+Claims marked *verified* come from code and measurements run while writing, with the versions named in each chapter. Corrections made after publication are listed in [CHANGELOG.md](CHANGELOG.md).
+
+### Companion code
+
+The runnable code lives in this folder too, so the handbook stays flat. There are 25 example pages, [E03](E03-javascript-runtime-and-engine.md) to [E79](E79-distributed-systems-design-for-frontend-architects.md), covering 27 chapters. Each is named after its chapter, explains a small project, and then lists every file in it. `node extract-examples.mjs` writes the pages out as project folders, with exact lockfiles from `examples.lock.json`. Every project passes a clean `npm ci`, its tests, its type-check and its build on Node 22.23 (169 tests in all). The code is extracted from the chapters by script rather than retyped, so what you run is what you read. Start with [E00 — Running the Examples](E00-running-the-examples.md). Chapters with an example say so in a **Runnable code** tip before their further reading.
+
+| Area | Example pages |
+|---|---|
+| Foundations and React | [E03](E03-javascript-runtime-and-engine.md), [E11](E11-build-your-own-react.md), [E12](E12-hooks-in-depth.md), [E25](E25-complex-ui-engineering.md), [E26](E26-forms-and-validation.md), [E29](E29-client-state-management.md) |
+| Data, reliability and security | [E33](E33-api-integration-bff-and-contracts.md), [E37](E37-internationalization-and-localization.md), [E40](E40-resilience-and-reliability.md), [E43](E43-frontend-security-architecture.md), [E45](E45-authentication-and-authorization.md) |
+| Frameworks | [E51](E51-react-router-v8-framework-mode.md) React Router, [E52](E52-tanstack-start-and-router.md) TanStack Start, [E68](E68-case-study-ecommerce-storefront.md) Next.js, [E56](E56-angular-architecture-and-dependency-injection.md) Angular (chapters 56, 57 and 59) |
+| Case studies and drills | [E65](E65-ai-powered-react-interfaces.md), [E66](E66-frontend-system-design.md), [E67](E67-case-study-enterprise-saas-dashboard.md), [E68](E68-case-study-ecommerce-storefront.md), [E69](E69-case-study-collaborative-project-management.md), [E70](E70-case-study-enterprise-design-system.md), [E74](E74-machine-coding-drills.md) |
+| Principal-level models | [E75](E75-experimentation-and-product-analytics.md), [E76](E76-frontend-cost-and-capacity-engineering.md), [E78](E78-business-cases-and-investment-arguments.md), [E79](E79-distributed-systems-design-for-frontend-architects.md) |
+
 ### Running example: Acme
 
 A fictional company called **Acme** threads through the book, so patterns and decisions add up to something concrete:

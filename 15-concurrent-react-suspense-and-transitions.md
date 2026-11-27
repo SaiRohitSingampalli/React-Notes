@@ -221,8 +221,8 @@ function Slides({ index }: { index: number }) {
   return (
     <ViewTransition
       key={index}                                          // new key → exit old, enter new
-      enter={{ next: 'slide-in-right', previous: 'slide-in-left' }}
-      exit={{ next: 'slide-out-left', previous: 'slide-out-right' }}
+      enter={{ next: 'slide-in-right', previous: 'slide-in-left', default: 'none' }} // a per-type map needs a default
+      exit={{ next: 'slide-out-left', previous: 'slide-out-right', default: 'none' }}
     >
       <Slide index={index} />
     </ViewTransition>
@@ -262,6 +262,8 @@ function goNext() {
 ### 6.2 Suspense + View Transitions
 
 ```tsx
+import { Suspense, ViewTransition } from 'react'; // not the DOM's ViewTransition type
+
 // Animate fallback → content as an update, but don't animate cached content appearing instantly
 <ViewTransition update="auto" default="none">
   <Suspense fallback={<CardSkeleton />}>
@@ -275,6 +277,8 @@ Recommended principles from the React team: **fallbacks appear immediately witho
 ### 6.3 Shared-element transitions
 
 ```tsx
+import { ViewTransition } from 'react';
+
 // List page
 <ViewTransition name={`photo-${photo.id}`}><img src={photo.thumb} alt={photo.alt} /></ViewTransition>
 // Detail page (after a navigation wrapped in a transition)

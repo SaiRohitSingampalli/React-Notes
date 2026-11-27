@@ -448,6 +448,9 @@ Afterwards, compare RUM and conversion by template to find what to fix before th
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E68](E68-case-study-ecommerce-storefront.md) has the product page as a Next.js 16 app, plus the bag and JSON-LD components with tests. `node extract-examples.mjs 68` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - Next.js, *Cache Components* and `cacheLife`/`cacheTag`: <https://nextjs.org/docs/app/getting-started/cache-components>

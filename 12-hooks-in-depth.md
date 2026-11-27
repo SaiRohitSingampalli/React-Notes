@@ -111,7 +111,7 @@ const [state, dispatch] = useReducer(reducer, { status: 'idle', items: [] });
 
 ## 4. Context hooks
 
-```ts
+```tsx
 const theme = useContext(ThemeContext);
 
 // React 19: `use` reads context and may be called conditionally
@@ -516,18 +516,18 @@ export function useMediaQuery(query: string, serverDefault = false) {
 ```
 
 ```ts
-// useLocalStorageState: cross-tab synced, SSR-safe
+// useLocalStorageState: cross-tab synced, SSR-safe, tolerant of corrupt values
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach((l) => l()); }
+function subscribe(cb: () => void) { listeners.add(cb); return () => { listeners.delete(cb); }; } // stable: no resubscribe per render
 if (typeof window !== 'undefined') window.addEventListener('storage', emit);
 
 export function useLocalStorageState<T>(key: string, fallback: T) {
-  const raw = useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-    () => localStorage.getItem(key),   // strings are compared by value, so this is stable
-    () => null,
-  );
-  const value = useMemo(() => (raw === null ? fallback : (JSON.parse(raw) as T)), [raw, fallback]);
+  const raw = useSyncExternalStore(subscribe, () => localStorage.getItem(key), () => null); // strings compare by value
+  const value = useMemo(() => {
+    if (raw === null) return fallback;
+    try { return JSON.parse(raw) as T; } catch { return fallback; } // corrupt or hand-edited storage
+  }, [raw, fallback]);
   const setValue = useCallback((next: T) => { localStorage.setItem(key, JSON.stringify(next)); emit(); }, [key]);
   return [value, setValue] as const;
 }
@@ -661,6 +661,9 @@ Because a promise created during render is a new object every render. React susp
 (See §11.2.) Debouncing delays updates by a fixed time and reduces work such as network requests. `useDeferredValue` has no fixed delay: it lets the urgent render use the old value and renders the new value in the background as soon as the device can. It improves responsiveness but doesn't reduce requests.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E12](E12-hooks-in-depth.md) has `useLocalStorageState`, with tests for cross-tab sync, corrupt values and server rendering. `node extract-examples.mjs 12` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

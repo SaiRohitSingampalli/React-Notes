@@ -343,6 +343,9 @@ No. The teams ship one product on one release train, so a monorepo with feature 
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E67](E67-case-study-enterprise-saas-dashboard.md) has the tenant-scoped data module, with a test that shows the cross-tenant leak it prevents. `node extract-examples.mjs 67` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - TanStack Query, *Paginated / lagged queries* and `placeholderData`: <https://tanstack.com/query/latest/docs/framework/react/guides/paginated-queries>

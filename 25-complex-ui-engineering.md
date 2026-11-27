@@ -133,11 +133,16 @@ flowchart LR
 | > 100k rows or unbounded | **Server-side** sorting, filtering and pagination (cursor-based); virtualise the viewport; prefetch neighbouring pages |
 
 ```tsx
-import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
+import { FlexRender, tableFeatures, useTable, type ColumnDef } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef } from 'react';
 
-function OrdersGrid({ rows, columns }: { rows: Order[]; columns: ColumnDef<Order>[] }) {
-  const table = useReactTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() });
+type Order = { id: string; number: string; customer: string; totalMinor: number };
+
+const features = tableFeatures({}); // register sorting, filtering and so on as the grid needs them (TanStack Table 9)
+
+export function OrdersGrid({ rows, columns }: { rows: Order[]; columns: ColumnDef<typeof features, Order>[] }) {
+  const table = useTable({ features, columns, data: rows, getRowId: (row) => row.id });
   const parentRef = useRef<HTMLDivElement>(null);
   const model = table.getRowModel().rows;
   const virtualizer = useVirtualizer({
@@ -156,7 +161,7 @@ function OrdersGrid({ rows, columns }: { rows: Order[]; columns: ColumnDef<Order
             const row = model[v.index];
             return (
               <tr key={row.id} aria-rowindex={v.index + 2} style={{ position: 'absolute', transform: `translateY(${v.start}px)` }}>
-                {row.getVisibleCells().map((cell) => <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}
+                {row.getAllCells().map((cell) => <td key={cell.id}><FlexRender cell={cell} /></td>)}
               </tr>
             );
           })}
@@ -166,6 +171,8 @@ function OrdersGrid({ rows, columns }: { rows: Order[]; columns: ColumnDef<Order
   );
 }
 ```
+
+This uses the TanStack Table 9 API (`useTable`, `tableFeatures`, `FlexRender`) with @tanstack/react-table 9.3 and @tanstack/react-virtual 3.14 (*verified*: the companion test renders 10,000 rows and finds only a window of them in the DOM). Version 8's `useReactTable` and `getCoreRowModel` are gone, and the migration is covered in [55](55-react-ecosystem-atlas-2026.md). `getRowId` gives rows their domain IDs, so keys stay stable when data is re-sorted or refetched. Build the `columns` prop with `createColumnHelper<typeof features, Order>()` and wrap the array in the helper's `columns([...])`: it keeps each column's value type, and a plain array of mixed accessor columns doesn't type-check against `ColumnDef<typeof features, Order>[]`.
 
 Performance rules for grids:
 
@@ -368,6 +375,9 @@ Provide a keyboard interaction (pick up, move, drop, cancel), announce each step
 When the element count or interaction rate exceeds what DOM layout can handle: tens of thousands of chart points, maps, design tools, real-time visualisations. The costs are accessibility (you must provide DOM mirrors or alternative data views), text rendering, hit testing and HiDPI handling, so canvas is a deliberate trade-off, not a default.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E25](E25-complex-ui-engineering.md) has the virtualised grid, with a test that renders 10,000 rows. `node extract-examples.mjs 25` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

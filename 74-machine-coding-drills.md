@@ -5,7 +5,7 @@
 **Prerequisites:** [03 JavaScript Runtime](03-javascript-runtime-and-engine.md), [12 Hooks in Depth](12-hooks-in-depth.md), [36 Accessibility Engineering](36-accessibility-engineering.md) · **Related:** [42 Testing Architecture](42-testing-architecture.md) · [66 Frontend System Design](66-frontend-system-design.md) (the typeahead drill) · [73 Interview Question Bank](73-interview-question-bank.md)
 
 > [!NOTE]
-> Every solution in this chapter is tested: 22 Vitest tests pass against React 19.3.1, Vitest 5.1, jsdom and Testing Library, and the code type-checks under TypeScript 6.0 `strict`. The test excerpts are taken from that suite.
+> Every solution in this chapter is tested: 23 Vitest tests pass against React 19.3.1, Vitest 5.1, jsdom and Testing Library, and the code type-checks under TypeScript 6.0 `strict`. The test excerpts are taken from that suite.
 
 ---
 
@@ -185,6 +185,7 @@ it('all keeps input order and rejects on the first failure', async () => {
 ```ts
 /** Run at most `limit` tasks at once; results keep the input order. */
 export async function mapLimit<T, R>(items: T[], limit: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  if (!Number.isInteger(limit) || limit < 1) throw new RangeError(`limit must be a positive integer, got ${limit}`);
   const results = new Array<R>(items.length);
   let next = 0;
   const worker = async () => {
@@ -214,6 +215,7 @@ it('mapLimit never runs more than the limit at once, and keeps order', async () 
 
 **Follow-ups:**
 
+- *What about a limit of zero?* Without the guard, `Math.min(0, items.length)` starts no workers, so the call resolves at once with an array of empty slots and no task ever runs. Reject anything that isn't a positive integer, as the first line does; the suite checks 0, −1, 1.5 and `NaN`.
 - *Why is `next++` safe without a lock?* JavaScript runs one piece of code at a time; there's no `await` between reading and incrementing `next`, so two workers can't take the same index.
 - *What if a task fails?* As written, the first failure rejects the whole call and the other workers keep going. Alternatives: collect errors per item (`allSettled` style), or stop scheduling new work on the first failure.
 - *Progress and cancellation?* Report a counter after each task, and check an `AbortSignal` at the top of the worker loop.
@@ -578,6 +580,10 @@ it('useInterval calls the latest callback without restarting the timer', () => {
 **What it tests:** the ARIA tabs pattern, focus management and roving `tabindex`.
 
 ```tsx
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'; // React's KeyboardEvent, not the DOM's
+
+export interface Tab { id: string; title: string; content: ReactNode }
+
 export function Tabs({ tabs, label }: { tabs: Tab[]; label: string }) {
   const [selected, setSelected] = useState(0);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
@@ -787,6 +793,9 @@ A: Render, measure with a `ResizeObserver`, store each row's height and keep cum
 A: The tablist, tab and tabpanel roles with `aria-selected`, `aria-controls` and `aria-labelledby`; one tab stop for the whole tablist with a roving `tabindex`; arrow keys, Home and End to move between tabs; and the panel reachable with Tab. Then test it with a keyboard and a screen reader, not just with axe.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E74](E74-machine-coding-drills.md) has all eleven drills with their full tests (the chapter prints abridged versions). `node extract-examples.mjs 74` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

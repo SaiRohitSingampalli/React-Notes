@@ -75,18 +75,18 @@ flowchart TB
 ```tsx
 // app/main.tsx
 import { createRoot } from 'react-dom/client';
-import { reportError } from '@/shared/observability';
+import { captureError } from '@/shared/observability';
 import { App } from './App';
 
 createRoot(document.getElementById('root')!, {
   onUncaughtError(error, info) {   // not caught by any boundary: the app is in a bad state
-    reportError(error, { handled: false, componentStack: info.componentStack });
+    captureError(error, { handled: false, componentStack: info.componentStack });
   },
   onCaughtError(error, info) {     // caught by an error boundary: UI degraded, still usable
-    reportError(error, { handled: true, componentStack: info.componentStack });
+    captureError(error, { handled: true, componentStack: info.componentStack });
   },
   onRecoverableError(error, info) { // React recovered (e.g. a hydration mismatch fell back to client rendering)
-    reportError(error, { recoverable: true, componentStack: info.componentStack });
+    captureError(error, { recoverable: true, componentStack: info.componentStack });
   },
 }).render(<App />);
 ```
@@ -99,7 +99,7 @@ createRoot(document.getElementById('root')!, {
 import { Suspense, type ReactNode } from 'react';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { QueryErrorResetBoundary } from '@tanstack/react-query';
-import { reportError } from '@/shared/observability';
+import { captureError } from '@/shared/observability';
 
 function WidgetError({ resetErrorBoundary }: FallbackProps) {
   return (
@@ -119,7 +119,7 @@ export function WidgetBoundary({ name, skeleton, optional = false, children }: P
         <ErrorBoundary
           onReset={reset} // clear the failed queries so "Try again" refetches them
           fallbackRender={optional ? () => null : (props) => <WidgetError {...props} />} // optional widgets disappear
-          onError={(error, info) => reportError(error, { boundary: name, componentStack: info.componentStack })}
+          onError={(error, info) => captureError(error, { boundary: name, componentStack: info.componentStack })}
         >
           <Suspense fallback={skeleton}>{children}</Suspense>
         </ErrorBoundary>
@@ -151,6 +151,13 @@ When a non-critical dependency is down, stop calling it for a while: fail fast t
 ```ts
 // shared/resilience/circuit-breaker.ts
 type BreakerState = 'closed' | 'open' | 'half-open';
+/** Does this error say the dependency is unhealthy? Aborts and client errors don't. */
+export const isTransientFailure = (error: unknown): boolean => {
+  if (error instanceof DOMException) return error.name === 'TimeoutError';           // AbortError: the caller gave up
+  if (error instanceof TypeError) return true;                                       // fetch's network failure
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' && status >= 500;
+};
 
 export class CircuitBreaker {
   private state: BreakerState = 'closed';
@@ -158,13 +165,14 @@ export class CircuitBreaker {
   private openedAt = 0;
   private readonly threshold: number;
   private readonly cooldownMs: number;
+  private readonly isFailure: (error: unknown) => boolean;
 
-  constructor(threshold = 5, cooldownMs = 30_000) {
+  constructor(threshold = 5, cooldownMs = 30_000, isFailure = isTransientFailure) {
     this.threshold = threshold;
     this.cooldownMs = cooldownMs;
+    this.isFailure = isFailure;
   }
 
-  /** Count only transient failures (timeouts, 5xx); validation errors shouldn't trip the breaker. */
   async run<T>(call: () => Promise<T>, fallback: () => T): Promise<T> {
     if (this.state === 'open') {
       if (Date.now() - this.openedAt < this.cooldownMs) return fallback(); // fail fast
@@ -177,17 +185,23 @@ export class CircuitBreaker {
       this.state = 'closed';
       this.failures = 0;
       return result;
-    } catch {
-      this.failures += 1;
-      if (this.state === 'half-open' || this.failures >= this.threshold) {
-        this.state = 'open';
-        this.openedAt = Date.now();
+    } catch (error) {
+      if (this.isFailure(error)) {
+        this.failures += 1;
+        if (this.state === 'half-open' || this.failures >= this.threshold) {
+          this.state = 'open';
+          this.openedAt = Date.now();
+        }
+      } else if (this.state === 'half-open') {
+        this.state = 'open';                                                // an aborted probe proves nothing: probe again next call
       }
       return fallback();
     }
   }
 }
 ```
+
+Only errors that say the dependency is unhealthy count towards opening: timeouts, network failures and 5xx responses. An `AbortError` means the caller gave up, which TanStack Query does whenever the user navigates away mid-request, and a 404 is a correct answer. An earlier version of this breaker counted every error, so three quick navigations opened it and hid recommendations for a minute. Pass your own `isFailure` if your client throws something else, and test the classifier, because it decides more than the threshold does.
 
 ```ts
 // features/recommendations/api.ts
@@ -454,6 +468,9 @@ Autosave drafts (debounced, to IndexedDB or a server-side draft) and restore the
 It's the property that a system keeps doing what it was doing when a dependency fails, rather than needing that dependency to recover. For frontends: the app shell is served from the CDN and doesn't need the API to render. Data fetched recently stays usable (stale-if-error at the CDN, persisted query caches on the client). Writes can be queued. Feature flags have cached and default values. A failing service degrades one region of the screen, not the whole app.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E40](E40-resilience-and-reliability.md) has the circuit breaker, with black-box tests of its states and failure classifier. `node extract-examples.mjs 40` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

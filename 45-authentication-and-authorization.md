@@ -399,6 +399,9 @@ Track idle time and warn before expiry, extending on activity. When an API retur
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E45](E45-authentication-and-authorization.md) has the policy module and the test matrix from section 5, runnable. `node extract-examples.mjs 45` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - RFC 10017 (BCP 212), *OAuth 2.0 for Browser-Based Applications*: <https://www.rfc-editor.org/rfc/rfc10017>

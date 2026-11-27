@@ -261,6 +261,8 @@ Libraries that implement **Standard Schema** (Zod 4, Valibot, ArkType) work with
 // shared/api/http.ts
 import { z } from 'zod';
 
+const API_BASE = new URL('/api/', globalThis.location?.href ?? 'http://localhost'); // the same-origin BFF
+
 const ProblemSchema = z.looseObject({
   type: z.string().default('about:blank'),
   title: z.string().optional(),
@@ -277,12 +279,14 @@ export class ApiError extends Error {
   readonly status: number;
   readonly problem: Problem;
   readonly retryable: boolean;
-  constructor(status: number, problem: Problem, retryable: boolean) {
+  readonly retryAfterMs: number | undefined; // when the server said to try again, if it did
+  constructor(status: number, problem: Problem, retryable: boolean, retryAfterMs?: number) {
     super(problem.title ?? `HTTP ${status}`);
     this.name = 'ApiError';
     this.status = status;
     this.problem = problem;
     this.retryable = retryable;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -297,13 +301,20 @@ export type RequestOptions<T> = {
   signal?: AbortSignal;
   timeoutMs?: number;
   retries?: number;
+  maxRetryWaitMs?: number; // the longest Retry-After this caller will wait before giving up
   idempotencyKey?: string; // makes POST/PATCH safe to retry, if the server honours it
 };
 
 export async function request<T>(path: string, opts: RequestOptions<T>): Promise<T> {
   const method = opts.method ?? 'GET';
-  const canRetry = SAFE_TO_RETRY.has(method) || opts.idempotencyKey !== undefined;
+  const key = opts.idempotencyKey;
+  if (key !== undefined && key.trim() === '') {
+    // An empty key would turn retries on without sending the header that makes them safe
+    throw new TypeError('idempotencyKey must be a non-empty string');
+  }
+  const canRetry = SAFE_TO_RETRY.has(method) || key !== undefined;
   const maxAttempts = canRetry ? 1 + (opts.retries ?? 2) : 1;
+  const maxWait = opts.maxRetryWaitMs ?? 30_000;
 
   for (let attempt = 1; ; attempt++) {
     let res: Response;
@@ -318,7 +329,7 @@ export async function request<T>(path: string, opts: RequestOptions<T>): Promise
         headers: {
           Accept: 'application/json, application/problem+json',
           ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...(opts.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : {}),
+          ...(key !== undefined ? { 'Idempotency-Key': key } : {}),
         },
         body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
       });
@@ -336,7 +347,10 @@ export async function request<T>(path: string, opts: RequestOptions<T>): Promise
 
     const error = await toApiError(res);
     if (!error.retryable || attempt >= maxAttempts) throw error;
-    await sleep(backoffMs(attempt, res.headers.get('Retry-After')), opts.signal);
+    // Respect Retry-After: wait exactly that long, or stop now if it's longer than this caller can wait,
+    // so the UI can say when to try again. Never retry earlier than the server asked.
+    if (error.retryAfterMs !== undefined && error.retryAfterMs > maxWait) throw error;
+    await sleep(error.retryAfterMs ?? backoffMs(attempt), opts.signal);
   }
 }
 
@@ -346,32 +360,39 @@ async function toApiError(res: Response): Promise<ApiError> {
     const parsed = ProblemSchema.safeParse(await res.json().catch(() => null));
     if (parsed.success) problem = parsed.data;
   }
-  return new ApiError(res.status, problem, TRANSIENT.has(res.status));
+  return new ApiError(res.status, problem, TRANSIENT.has(res.status), retryAfterMs(res.headers.get('Retry-After')));
 }
 
-function backoffMs(attempt: number, retryAfter?: string | null): number {
-  if (retryAfter) {
-    const seconds = Number(retryAfter);
-    if (Number.isFinite(seconds)) return Math.min(seconds * 1000, 30_000);
-    const at = Date.parse(retryAfter); // HTTP-date form
-    if (!Number.isNaN(at)) return Math.min(Math.max(0, at - Date.now()), 30_000);
-  }
+/** Retry-After is delay-seconds (a non-negative integer) or an HTTP-date (RFC 9110 §10.2.3). */
+function retryAfterMs(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const v = value.trim();
+  if (/^\d+$/.test(v)) return Number(v) * 1000;
+  const at = Date.parse(v);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
+}
+
+function backoffMs(attempt: number): number {
   return Math.random() * Math.min(8_000, 300 * 2 ** attempt); // exponential backoff, "full jitter"
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason);
-    const id = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => { clearTimeout(id); reject(signal.reason); }, { once: true });
+    const onAbort = () => { clearTimeout(id); reject(signal!.reason); };
+    const id = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
 ```
 
+*Verified* with a scripted `fetch` (seven `node:test` cases, zod 4.6): an empty idempotency key throws before any request is sent; a keyed `POST` sends the same key on every attempt, and an unkeyed one is never retried; `Retry-After: 120` against the default 30-second budget fails at once with `retryAfterMs: 120000` instead of retrying early; delay-seconds and HTTP-date values are honoured exactly; and waiting between attempts leaves no abort listeners behind. An earlier version of this client capped `Retry-After` at 30 seconds, sent no header when given an empty key, and left one abort listener per wait.
+
 Design notes:
 
 - **Retries multiply load.** Three layers that each retry three times turn one failure into 27 requests. Retry in **one** layer (here, or the query library, not both). Cap attempts and use jitter so clients don't retry in lockstep.
-- **Idempotency keys** make `POST` safe to retry. The server stores the result per key and replays it. Generate the key **once per user intent** (when the checkout form mounts, say), not per click or per attempt. The `Idempotency-Key` header is still an IETF draft, but Stripe-style implementations are widespread.
+- **Idempotency keys** make `POST` safe to retry. The server stores the result per key and replays it. Generate the key **once per user intent** (when the checkout form mounts, say), not per click or per attempt. An empty key is rejected, because it would turn retries on without sending the header that makes them safe. The `Idempotency-Key` header is still an IETF draft, but Stripe-style implementations are widespread.
+- **`Retry-After` is an instruction, not a hint.** The client waits exactly as long as the server asks, or, if that's longer than the caller's budget (`maxRetryWaitMs`), stops at once and reports `retryAfterMs` so the UI can say when to try again. Retrying sooner than asked is exactly what rate limiters penalise.
 - **Timeouts are mandatory.** A request with no timeout is a spinner with no end. `AbortSignal.any` combines the caller's cancellation (unmount, navigation, a newer search) with the timeout.
 - **Tracing.** Let OpenTelemetry's fetch instrumentation add `traceparent`, so a slow screen can be followed from browser to BFF to services ([41](41-observability-and-diagnostics.md)).
 
@@ -638,6 +659,26 @@ Generate the default handlers from the contract (Orval and similar tools can emi
 
 **Migration path.** Wrap existing calls behind the typed client first (no behaviour change). Add Problem Details mapping and timeouts. Introduce codegen from the existing spec. Add contract diffs to CI. Then move token handling into a BFF, and collapse chatty screens into BFF or Server Component aggregations, one route at a time.
 
+### The hard decision: which layer retries?
+
+"Retry in one layer" is easy to agree with and hard to implement, because every layer has a good local reason to retry. The browser is on a flaky mobile network. The query library retries failed queries by default (TanStack Query tries three more times). The BFF calls services that occasionally time out, and the service mesh has a retry policy of its own. Each choice is sensible alone. Together they multiply: three layers that each try three times turn one click into as many as 27 requests (3 × 3 × 3) against the service that's failing, at the moment it can least absorb them.
+
+**The rule: one retrying layer per network hop, and it's the layer that knows whether a request is safe to repeat.**
+
+- **Browser to BFF.** The typed HTTP client from §5 retries, because it knows the method and the idempotency key, and it honours `Retry-After`. The query library doesn't (`retry: false` for anything the client already retries), and neither does the component.
+- **BFF to services.** The BFF's own client retries, within a budget of about 10% extra requests ([40](40-resilience-and-reliability.md)). It passes the caller's remaining deadline downstream, so no retry starts that can't finish before the browser gives up.
+- **The mesh.** Either it's the one retrying layer for that hop and the BFF's client doesn't retry, or its retries are off. Never both, and never for non-idempotent routes.
+
+**What makes a retry safe.** A retry needs three things:
+
+- a *budget*, so retries can't grow past a fixed share of traffic;
+- a *deadline* that travels with the request;
+- *pushback* from the server: 429 or 503 with `Retry-After`, honoured exactly, or a fast failure with `retryAfterMs` when the wait is over budget, so the UI can say when to try again.
+
+Don't retry non-idempotent requests without a key, 4xx responses other than 408 and 429, requests the user aborted, or calls behind an open circuit breaker.
+
+**Make it testable.** Write the retry policy per hop into the architecture docs. Then test the end-to-end number, not each layer: point a test environment at a dependency that always returns 503, perform one user action, and count the requests that reach the dependency. If the count is more than the one layer's attempts, a second layer is retrying. That test is cheap, and it catches what code review misses: a library upgrade that changed a default.
+
 ---
 
 ## Pitfalls and anti-patterns
@@ -688,6 +729,9 @@ Ideally not in the browser. With a BFF, the server holds the tokens and the brow
 Retry only idempotent methods, or `POST`s that carry an idempotency key generated once per user intent. Retry only transient failures (network errors, timeouts, 408, 429, 502–504). Cap attempts, use exponential backoff with full jitter, honour `Retry-After`, and never retry after the caller aborts. Retry in exactly one layer to avoid multiplication, and add a circuit breaker or failure budget so a struggling service isn't hammered ([40](40-resilience-and-reliability.md)).
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E33](E33-api-integration-bff-and-contracts.md) has the HTTP client and the Problem Details mapper, with tests for retries, `Retry-After` and idempotency keys. `node extract-examples.mjs 33` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 

@@ -298,6 +298,9 @@ A: It depends on the traffic shape and the cache. Serverless suits spiky, low-av
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E76](E76-frontend-cost-and-capacity-engineering.md) has the cost model with its scenarios, and the SSR benchmark from section 4. `node extract-examples.mjs 76` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - [FinOps Foundation: the FinOps Framework](https://www.finops.org/framework/).

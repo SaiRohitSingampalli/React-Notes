@@ -313,6 +313,9 @@ A: Treat Web Vitals and error rates as guardrails on every experiment, with auto
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E75](E75-experimentation-and-product-analytics.md) has the experiment arithmetic, with tests that reproduce this chapter's figures. `node extract-examples.mjs 75` writes it out as a project; it has no dependencies, so just run `npm test` in it.
+
 ## Further reading
 
 - Ron Kohavi, Diane Tang and Ya Xu, *Trustworthy Online Controlled Experiments* (2020): the standard reference.

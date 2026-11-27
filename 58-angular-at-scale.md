@@ -8,31 +8,13 @@
 
 ## TL;DR
 
-- **Routing.** Use lazy `loadChildren`/`loadComponent` everywhere, and `canMatch` so navigation never loads a feature the user can't open. Then layer on:
-  - component input binding;
-  - a preloading strategy that respects Save-Data *and permissions*: the preloader ignores `canMatch`, which I confirmed with a test;
-  - View Transitions;
-  - scroll restoration;
-  - `withAutoCleanupInjectors()` (stable since 22.2).
-
-  Router resources and router error boundaries are useful but still in developer preview.
-- **HTTP.** Order the interceptors deliberately. Error mapping goes first, so it sees the final error. Retry goes last, so it sees raw status codes. Put error mapping inside retry and retries silently stop, which I also demonstrated in a test. Retries apply only to idempotent requests, with per-request overrides through `HttpContextToken`. XSRF protection is built in for same-origin mutations. Two 2025–26 advisories against it are a reason to stay on patched releases.
-- **Rendering per route** with `app.routes.server.ts`:
-  - `Prerender` for public pages, with `getPrerenderParams` and an on-demand fallback for new slugs.
-  - `Server` for per-request HTML, with headers and status codes declared per route.
-  - `Client` for personalised pages with no SEO value.
-
-  I built and probed all three.
-- **Hydration in v22.** Full hydration, incremental hydration (`@defer (…; hydrate on interaction)`) and event replay are all on by default. Clicks on not-yet-hydrated content are replayed, which I verified in headless Chromium.
-- **SSR security is configuration, plus prompt patching.**
-  - `security.allowedHosts`: unknown `Host` headers get a 400, which closes an SSRF hole. At least seven Angular SSR and HTTP advisories between November 2025 and October 2026 were URL-parsing and header-trust bugs of this kind (§3.5).
-  - `autoCsp` gives you a hash-based CSP, but it can't be combined with SSR.
-  - For SSR, use a per-request nonce. The server must stamp it on build-time scripts, and on every script and style tag of a prerendered page, which never saw a nonce.
-
-  My strict-CSP setup ran with zero violations on prerendered and server-rendered pages, but only after I fixed a blocked stylesheet the first version missed.
-- **Testing.** Vitest is the default runner (jsdom, or real browsers via the `browsers` option). Combine it with TestBed, `RouterTestingHarness`, `HttpTestingController`, component harnesses and Playwright for E2E. `refactor-jasmine-vitest` migrates existing Jasmine specs.
-- **Scale tooling.** Nx 24 for monorepos and enforced boundaries. Native Federation (esbuild plus import maps) when independent deployment is a genuine requirement. Angular Aria and the CDK under your design system.
-- **Upgrades.** One major a year, each supported for 24 months. Upgrade in the first minor or two after a major lands, one major at a time, with the ecosystem aligned (Material, NgRx, Nx, Federation all ship matching majors).
+- **Routing.** Lazy-load every feature and gate it with `canMatch`. Preload with a strategy that checks permissions too: Angular's preloader ignores `canMatch` (*verified*, §1).
+- **HTTP.** Error mapping goes first in the interceptor chain and retry goes last. The other order stops retries without any error (*verified*, §2). Retry only idempotent requests.
+- **Rendering per route.** `Prerender` for public pages, `Server` for per-request HTML, `Client` for personalised pages with no SEO value (§3.1). Whether any route needs `Server`, and so a server in production, is the expensive decision; see "The hard decision" below.
+- **Hydration.** In v22, full hydration, incremental hydration (`@defer` with `hydrate` triggers) and event replay are on by default (§3.2).
+- **SSR security is configuration plus patching.** Set `security.allowedHosts`. Stamp a per-request nonce on every script and style tag, prerendered pages included, because `autoCsp` can't be combined with SSR. Take framework patches within days: at least seven SSR and HTTP advisories in eleven months were URL-parsing and header-trust bugs (§3.4 to 3.5).
+- **Testing.** Vitest with TestBed and the router and HTTP test harnesses, plus Playwright for SSR, hydration and critical journeys (§5).
+- **Scale and upgrades.** Enforce Nx boundaries before reaching for Native Federation, which is for genuinely independent deployment (§6). Upgrade once a year, one major at a time, with the ecosystem aligned (§9).
 
 ---
 
@@ -62,12 +44,14 @@ So a preloading strategy has to check permissions itself:
 
 ```ts
 // app.routes.ts (excerpt): the gated route says which permission the preloader should check
-{
-  path: 'invoices',
-  canMatch: [requirePermission('invoice:read')],      // navigation never loads the chunk without the permission
-  loadChildren: () => import('./features/invoices/invoices.routes').then((m) => m.INVOICE_ROUTES),
-  data: { preload: true, permission: 'invoice:read' }, // preloading ignores canMatch: the strategy checks this
-},
+export const routes: Routes = [
+  {
+    path: 'invoices',
+    canMatch: [requirePermission('invoice:read')],      // navigation never loads the chunk without the permission
+    loadChildren: () => import('./features/invoices/invoices.routes').then((m) => m.INVOICE_ROUTES),
+    data: { preload: true, permission: 'invoice:read' }, // preloading ignores canMatch: the strategy checks this
+  },
+];
 ```
 
 ```ts
@@ -141,12 +125,16 @@ flowchart LR
 
 ```ts
 // app.config.ts (excerpt)
-provideHttpClient(withInterceptors([          // requests run top to bottom, responses and errors bottom to top
-  problemDetailsInterceptor,                  // outermost: sees the final error, hands components ApiError
-  requestContextInterceptor,                  // request id and release header, identical on every retry
-  unauthorizedInterceptor,                    // sees raw 401s (not retryable, so retry passes them straight out)
-  retryInterceptor,                           // innermost: re-subscribes the backend call, sees raw status codes
-])),
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(withInterceptors([      // requests run top to bottom, responses and errors bottom to top
+      problemDetailsInterceptor,              // outermost: sees the final error, hands components ApiError
+      requestContextInterceptor,              // request id and release header, identical on every retry
+      unauthorizedInterceptor,                // sees raw 401s (not retryable, so retry passes them straight out)
+      retryInterceptor,                       // innermost: re-subscribes the backend call, sees raw status codes
+    ])),
+  ],
+};
 ```
 
 ```ts
@@ -363,7 +351,10 @@ app.use((req, res, next) => {
 
 ```ts
 // app.config.server.ts (excerpt): the same nonce for the styles and scripts Angular creates while rendering
-{ provide: CSP_NONCE, useFactory: () => (inject(REQUEST_CONTEXT) as { nonce?: string } | null)?.nonce ?? null },
+const nonceProvider: Provider = {
+  provide: CSP_NONCE,
+  useFactory: () => (inject(REQUEST_CONTEXT) as { nonce?: string } | null)?.nonce ?? null,
+};
 ```
 
 With both pieces in place, headless Chromium loaded two prerendered and two server-rendered pages with **zero CSP violations**. The component style applied, the app bootstrapped, and a click on a dehydrated block was replayed. One more trap turned up: `base-uri 'none'` breaks Angular's `<base href>`, so use `'self'`. Three more things to know:
@@ -608,18 +599,13 @@ After 28 November only v21 and v22 get security fixes. Given the advisory record
 
 **Criteria.** Prefer framework defaults unless a measured need says otherwise. Every deviation (zone-based change detection, a custom builder, micro-frontends) needs an owner and an exit plan.
 
-**Failure modes.**
+**Failure modes.** The pitfalls below cover the code-level ones. At the level of decisions, these recur:
 
-- `RenderMode.Server` pages cached publicly.
 - `allowedHosts: ['*']` without a validating proxy.
-- `autoCsp` assumed to cover SSR.
-- Nonces cached by a CDN.
-- `PreloadAllModules`, or any strategy that ignores permissions, on an app with gated features.
+- Nonce-bearing pages cached by a CDN.
 - Resolvers blocking every navigation.
 - Micro-frontends adopted for organisational fashion.
-- Error mapping placed inside retry, so transient failures are never retried.
-- Framework security patches left in the backlog.
-- Skipping majors until LTS has expired.
+- Security patches left in the backlog, or majors skipped until LTS has expired.
 
 **Migration path.**
 
@@ -631,6 +617,33 @@ After 28 November only v21 and v22 get security fixes. Given the advisory record
 6. Set `allowedHosts` and a CSP, then verify the CSP in a real browser.
 7. Enforce module boundaries.
 8. Consider federation only after the monorepo boundaries hold.
+
+### The hard decision: whether to run a server at all
+
+The render-mode table makes every route look like a local choice. It isn't. One `Server` route, or one `fallback: PrerenderFallback.Server`, means a Node process in production, and that process changes the risk and cost of the whole application. `Prerender` and `Client` routes ship as files. A CDN can serve them, they have no request-handling code to exploit, and `autoCsp` covers them.
+
+**What a runtime server costs you.**
+
+- **Attack surface.** The server parses `Host`, `X-Forwarded-*` and URLs on every request. Those are the URL-parsing and header-trust bugs behind the 2025–26 advisories (§3.5), and why patching within days becomes a requirement rather than good hygiene.
+- **A harder CSP.** Server-rendered pages need a per-request nonce stamped on every tag. Nonce-bearing HTML can't sit in a shared cache, so the CDN does less work.
+- **Operations.** You need capacity for peak traffic, health checks, cold starts and an on-call rota for a deployable that can now be down while the API is up. Chapter [76](76-frontend-cost-and-capacity-engineering.md) puts numbers on this.
+- **Code discipline.** Everything must be hydration-safe: no browser globals at module scope, and data passed through TransferState (§3.3).
+
+**What it buys you.** HTML that is fresh on every request, for three kinds of page:
+
+- content that changes faster than you can rebuild;
+- long-tail pages you can't enumerate at build time;
+- authenticated pages whose first paint must show data, where a measured LCP shows the client-rendered shell is too slow.
+
+**How I decide.** Start every public route on `Prerender` and every authenticated route on `Client`. That ships no server. Then, for each route where this fails, name the failure in one sentence:
+
+- "40,000 products, and new ones appear hourly" justifies `fallback: Server` for unknown slugs.
+- "The dashboard's LCP is 3.8 s because it waits for client fetches" justifies `Server` for that one route.
+- "SEO" alone, for a page behind a login, justifies nothing.
+
+If even one failure is real, take on the whole bill: `allowedHosts`, restricted egress, nonce stamping, a patch SLA and capacity planning. A server you run for one route is a server you secure for all of them.
+
+**Signs you chose wrong.** A server whose only job is rendering pages that change daily should be a scheduled rebuild. A `Server` route with `Cache-Control: public` is a prerendered page with extra steps and a security budget. A `Client` dashboard whose users complain about blank first paints may be the one route that earns a server.
 
 ---
 
@@ -678,12 +691,7 @@ With server routes per section. Marketing pages are `Prerender`. The catalogue i
 Without it, the client must hydrate the whole page before any of it is interactive, which means downloading and running all its JavaScript. With incremental hydration, `@defer` blocks with `hydrate` triggers are server-rendered with real content but stay dehydrated until their trigger fires, so their code loads only when needed. Event replay records interactions made before hydration and replays them afterwards, so a click on a not-yet-hydrated button isn't lost. In v22 both are on by default with `provideClientHydration()`.
 
 **Q3. How would you harden an Angular SSR deployment?**
-In layers, starting with the request.
-
-- **Hosts and headers.** Set `security.allowedHosts` (never `'*'`), so a forged `Host` gets a 400 instead of steering server-side requests. Leave `X-Forwarded-*` untrusted unless a proxy in front overwrites them, and only then list them in `trustProxyHeaders`. Restrict the server's egress to the APIs it needs.
-- **The engine.** Use `AngularNodeAppEngine`, not the deprecated `CommonEngine`.
-- **The CSP.** `autoCsp` can't be combined with SSR, so generate a per-request nonce. Send it in a `'strict-dynamic'` policy, provide it as `CSP_NONCE`, and stamp it on every script and style tag the response still lacks one on. That covers build-time scripts and prerendered pages, which Angular never nonces. Then verify in a real browser; that is how I found prerendered styles being blocked. Nonce-bearing HTML stays out of shared caches.
-- **Operations.** Angular had seven SSR and HTTP advisories in eleven months, several of them follow-ups to incomplete fixes. Patch releases go out within days, on a supported major.
+In layers, starting with the request. Set `security.allowedHosts` (never `'*'`), so a forged `Host` gets a 400 instead of steering server-side requests. Trust `X-Forwarded-*` only behind a proxy that overwrites them, and restrict the server's egress to the APIs it needs. Use `AngularNodeAppEngine`, not the deprecated `CommonEngine`. `autoCsp` can't be combined with SSR, so send a per-request nonce in a `'strict-dynamic'` policy and stamp it on every script and style tag, prerendered pages included. Verify that in a real browser, and keep nonce-bearing HTML out of shared caches. Finally, patch fast: Angular had seven SSR and HTTP advisories in eleven months, several of them follow-ups to incomplete fixes.
 
 **Q4. Where do error mapping and retry go in an Angular interceptor chain, and why?**
 Requests pass through interceptors in array order and errors come back in reverse. Error mapping, which turns `HttpErrorResponse` into the app's error type, goes first, so it sees the final outcome. Retry goes last, so it sees raw status codes; if mapping sits inside it, retry never recognises a 503 and stops retrying, silently. One subtlety I confirmed in a test: a retry re-subscribes to the downstream Observable rather than re-running downstream interceptors. Headers set anywhere in the chain are identical on every attempt, and an interceptor that must re-read state per attempt (a refreshed token) has to use `defer`. Only idempotent requests are retried: `GET`, `HEAD`, or mutations that carry an `Idempotency-Key`.

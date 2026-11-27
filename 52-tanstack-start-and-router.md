@@ -618,6 +618,9 @@ Both are portable, Vite-based and web-standard. React Router's loaders and actio
 
 ---
 
+> [!TIP]
+> **Runnable code:** [E52](E52-tanstack-start-and-router.md) has the app, with a smoke test of the auth guard against the production build. `node extract-examples.mjs 52` writes it out as a project; then run `npm ci` and `npm test` in it.
+
 ## Further reading
 
 - TanStack Router docs, *Search params*: <https://tanstack.com/router/latest/docs/framework/react/guide/search-params> · *Data loading*: <https://tanstack.com/router/latest/docs/framework/react/guide/data-loading>

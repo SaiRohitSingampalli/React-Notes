@@ -287,24 +287,43 @@ stateDiagram-v2
 ## 10. Autosave and drafts
 
 ```ts
-// Debounced autosave with conflict detection
-const save = useDebouncedCallback(async (draft: Draft) => {
-  const res = await fetch(`/api/drafts/${draft.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'If-Match': draft.etag },
-    body: JSON.stringify(draft),
-  });
-  if (res.status === 412) setConflict(await res.json()); // someone else saved: resolve explicitly
-  else setEtag(res.headers.get('ETag')!);
-}, 800);
+// features/drafts/use-autosave.ts
+import { useEffect, useRef } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import type { Draft } from './types';
 
-// Flush pending saves when the page is hidden (tab switch, close)
-useEffect(() => {
-  const onHide = () => document.visibilityState === 'hidden' && save.flush();
-  document.addEventListener('visibilitychange', onHide);
-  return () => document.removeEventListener('visibilitychange', onHide);
-}, [save]);
+// Debounced autosave with conflict detection. Saves run one at a time, each sending the ETag the previous
+// one returned: overlapping saves would send the same stale If-Match and conflict with each other.
+export function useAutosave(initialEtag: string, onConflict: (server: unknown) => void, onError: (reason: unknown) => void) {
+  const etag = useRef(initialEtag);
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const save = useDebouncedCallback((draft: Draft) => {
+    queue.current = queue.current
+      .then(async () => {
+        const res = await fetch(`/api/drafts/${draft.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'If-Match': etag.current },
+          body: JSON.stringify(draft),
+        });
+        if (res.status === 412) onConflict(await res.json());          // someone else saved: resolve explicitly
+        else if (res.ok) etag.current = res.headers.get('ETag') ?? etag.current;
+        else onError(res.status);                                        // keep the draft dirty; the next change retries
+      })
+      .catch(onError);                                                   // network failure: same
+  }, 800);
+
+  // Flush pending saves when the page is hidden (tab switch, close)
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') save.flush(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [save]);
+  useEffect(() => () => { save.flush(); }, [save]);                     // and when the editor unmounts (in-app navigation)
+  return save;
+}
 ```
+
+Two failure modes shaped this hook, and both lose or reject work without an error anyone sees. The first is a conflict with yourself. A debounced save that starts while the previous one is still in flight sends the same `If-Match`, because the new ETag hasn't come back yet, and the server rejects it with 412. Queueing the saves fixes it. The second is the last edit vanishing: the user types and then clicks to another route inside the debounce window. The unmount flush sends that edit. The `visibilitychange` flush covers closing the tab, but the browser may cancel an ordinary fetch as the page unloads. `keepalive: true` lets requests outlive the page, up to 64 KiB in flight in total. For larger drafts, or if losing a few seconds of typing is unacceptable, also keep the draft in IndexedDB and reconcile on the next load.
 
 ---
 
@@ -374,6 +393,9 @@ Actions plus uncontrolled inputs cover most forms with less code and give progre
 Give every input a real label, associate hints and errors via `aria-describedby`, set `aria-invalid`, group related controls with fieldset and legend, use `autocomplete` tokens, and indicate required fields in text. On submit, show an error summary linking to fields, focus it, and announce it. Validate on blur, then on change. Allow paste and password managers. Save drafts so users can resume. Test with a screen reader and keyboard only.
 
 ---
+
+> [!TIP]
+> **Runnable code:** [E26](E26-forms-and-validation.md) has `useAutosave`, with tests for queued saves, conflicts, failures and the unmount flush. `node extract-examples.mjs 26` writes it out as a project; then run `npm ci` and `npm test` in it.
 
 ## Further reading
 
